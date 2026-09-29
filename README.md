@@ -101,6 +101,9 @@ four corners in `scripts/optimize-images.mjs` (`plate: [...]`), and the pipeline
 with the brand plate (`PLATE_TEXT`). When adding a photo of a car, add its plate corners
 before running `npm run images`, then check the result.
 
+The original photos are kept **outside** this repository, in `../cars-photos-originales`
+(they show the real plates). Point elsewhere with `IMAGES_SRC=/path npm run images`.
+
 ## Mobile
 
 Most clients are on phones, so phones are the reference layout:
