@@ -12,7 +12,10 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = path.join(ROOT, "public", "img");
-const src = (n) => path.join(ROOT, n === 1 ? "Pasted image.png" : `Pasted image (${n}).png`);
+/* Original photos live outside the project (they show real number plates and are not published).
+   Override with IMAGES_SRC=/path/to/folder npm run images */
+const SRC_DIR = process.env.IMAGES_SRC ?? path.join(ROOT, "..", "cars-photos-originales");
+const src = (n) => path.join(SRC_DIR, n === 1 ? "Pasted image.png" : `Pasted image (${n}).png`);
 
 /* Text shown on every car's number plate. Registration numbers are never published. */
 const PLATE_TEXT = "CHEBBA AUTO CAR";
