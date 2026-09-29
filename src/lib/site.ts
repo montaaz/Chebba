@@ -5,7 +5,10 @@
 export const SITE = {
   brand: "Chebba",
   brandSub: "Auto Car",
-  url: process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000",
+  // set NEXT_PUBLIC_SITE_URL once you have your own domain; on Vercel the project's address is used until then
+  url:
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_PROJECT_PRODUCTION_URL ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}` : "http://localhost:3000"),
   country: "Tunisie",
 };
 
