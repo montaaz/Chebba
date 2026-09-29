@@ -1,0 +1,14 @@
+node_modules
+.next
+out
+next-env.d.ts
+*.tsbuildinfo
+.env*
+!.env.example
+
+# original press photos: they still show real number plates; the site uses the cleaned copies in public/img
+/Pasted image*.png
+/palette de color.png
+# local tooling and crash data
+.qodo/
+.sentry-native/

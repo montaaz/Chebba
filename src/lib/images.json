@@ -1,0 +1,119 @@
+{
+  "ext-front": {
+    "widths": [
+      640,
+      1100
+    ],
+    "width": 1100,
+    "height": 650,
+    "v": "de9d9742"
+  },
+  "ext-front34": {
+    "widths": [
+      640,
+      1100
+    ],
+    "width": 1100,
+    "height": 654,
+    "v": "9ab120d4"
+  },
+  "ext-rear34": {
+    "widths": [
+      640,
+      1100
+    ],
+    "width": 1100,
+    "height": 654,
+    "v": "8c0671af"
+  },
+  "ext-rear": {
+    "widths": [
+      640,
+      1100
+    ],
+    "width": 1100,
+    "height": 654,
+    "v": "fd84099e"
+  },
+  "ext-grille": {
+    "widths": [
+      480,
+      900
+    ],
+    "width": 900,
+    "height": 535,
+    "v": "f5439d1f"
+  },
+  "int-ambient": {
+    "widths": [
+      720,
+      1400
+    ],
+    "width": 1400,
+    "height": 436,
+    "v": "d0777da5"
+  },
+  "int-dashboard": {
+    "widths": [
+      640,
+      1200
+    ],
+    "width": 1200,
+    "height": 673,
+    "v": "1efde798"
+  },
+  "int-cockpit": {
+    "widths": [
+      480,
+      900
+    ],
+    "width": 900,
+    "height": 684,
+    "v": "c198d4a9"
+  },
+  "int-screen": {
+    "widths": [
+      480,
+      900
+    ],
+    "width": 900,
+    "height": 684,
+    "v": "e5ce5d9e"
+  },
+  "int-console": {
+    "widths": [
+      480,
+      900
+    ],
+    "width": 900,
+    "height": 684,
+    "v": "9363487d"
+  },
+  "int-climate": {
+    "widths": [
+      480,
+      900
+    ],
+    "width": 900,
+    "height": 684,
+    "v": "77c5002f"
+  },
+  "int-seat": {
+    "widths": [
+      480,
+      840
+    ],
+    "width": 840,
+    "height": 512,
+    "v": "c03af079"
+  },
+  "hero-ibiza": {
+    "widths": [
+      720,
+      1200
+    ],
+    "width": 1200,
+    "height": 516,
+    "v": "1a2af4d7"
+  }
+}
