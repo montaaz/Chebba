@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/PasswordInput";
 import Link from "next/link";
 import { useActionState } from "react";
 import { loginAction, signupAction, type AuthState } from "@/app/actions/auth";
@@ -38,15 +39,15 @@ export default function AuthForm({ mode, next }: { mode: "login" | "signup"; nex
       </label>
       <label className={FIELD}>
         <span className={LABEL}>Mot de passe</span>
-        <input
-          className={INPUT}
-          name="password"
-          type="password"
-          minLength={8}
-          maxLength={200}
-          autoComplete={mode === "login" ? "current-password" : "new-password"}
-          required
-        />
+        <PasswordInput
+     className={INPUT}
+     name="password"
+     
+     minLength={8}
+     maxLength={200}
+     autoComplete={mode === "login" ? "current-password" : "new-password"}
+     required
+    />
       </label>
       {state.error && <Notice tone="error">{state.error}</Notice>}
       <button className="btn btn--solid min-h-12" type="submit" disabled={pending}>

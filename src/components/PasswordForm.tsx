@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/PasswordInput";
 import { useActionState, useEffect, useRef } from "react";
 import { passwordAction, type ProfileState } from "@/app/actions/booking";
 import { FIELD, INPUT, LABEL, Notice } from "@/components/ui";
@@ -14,16 +15,16 @@ export default function PasswordForm() {
     <form ref={form} action={action} className="flex flex-col gap-4">
       <label className={FIELD}>
         <span className={LABEL}>Mot de passe actuel</span>
-        <input className={INPUT} name="current" type="password" autoComplete="current-password" maxLength={200} required />
+        <PasswordInput className={INPUT} name="current" autoComplete="current-password" maxLength={200} required />
       </label>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className={FIELD}>
           <span className={LABEL}>Nouveau mot de passe</span>
-          <input className={INPUT} name="next" type="password" autoComplete="new-password" minLength={8} maxLength={200} required />
+          <PasswordInput className={INPUT} name="next" autoComplete="new-password" minLength={8} maxLength={200} required />
         </label>
         <label className={FIELD}>
           <span className={LABEL}>Confirmer</span>
-          <input className={INPUT} name="again" type="password" autoComplete="new-password" minLength={8} maxLength={200} required />
+          <PasswordInput className={INPUT} name="again" autoComplete="new-password" minLength={8} maxLength={200} required />
         </label>
       </div>
       {state.error && <Notice tone="error">{state.error}</Notice>}

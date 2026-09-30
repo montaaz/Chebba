@@ -1,5 +1,6 @@
 "use client";
 
+import PasswordInput from "@/components/PasswordInput";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -487,12 +488,11 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                     </label>
                     <label className={FIELD}>
                       <span className={LABEL}>{mode === "signup" ? "Créez un mot de passe" : "Mot de passe"}</span>
-                      <input
+                      <PasswordInput
                         className={INPUT}
                         value={password}
                         maxLength={200}
                         minLength={8}
-                        type="password"
                         autoComplete={mode === "signup" ? "new-password" : "current-password"}
                         required
                         onChange={(e) => setPassword(e.target.value)}
