@@ -116,7 +116,7 @@ export default async function Home() {
           <div className="hero__foot">
             <QuickBook
               today={today}
-              places={places.map((p) => ({ id: p.id, name: p.name, kind: p.kind }))}
+              places={places.map((p) => ({ id: p.id, name: p.name, kind: p.kind, lat: p.lat, lng: p.lng }))}
               perKm={kmFrom}
               perDay={Number.isFinite(perDay) ? perDay : 0}
               currency={currency}

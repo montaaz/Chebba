@@ -4,20 +4,17 @@ import { useRef, useState } from "react";
 import { addDays, daysBetween, fromYmd, shortDate, ymd } from "@/lib/dates";
 import { money } from "@/lib/format";
 import Calendar from "./pickers/Calendar";
+import PlaceSearch, { type Spot } from "./pickers/PlaceSearch";
 import Popover from "./pickers/Popover";
 import Icon from "./Icon";
 
 type Mode = "transfert" | "location";
-type Place = { id: number; name: string; kind: string };
+type Place = { id: number; name: string; kind: string; lat: number; lng: number };
 type Props = { today: string; places: Place[]; perKm: number; perDay: number; currency: string };
 
-const KIND: Record<string, { icon: string; group: string }> = {
-  airport: { icon: "✈", group: "Aéroports" },
-  port: { icon: "⚓", group: "Ports" },
-  agency: { icon: "◆", group: "Agences" },
-  hotel: { icon: "★", group: "Hôtels" },
-  city: { icon: "●", group: "Villes" },
-};
+/* a place travels to the booking page as "lat,lng,label" */
+const encode = (p: Spot) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)},${p.label}`;
+const shortLabel = (label: string) => label.split(",")[0];
 
 /* A field of the bar: icon tile, small caption, value. */
 function Cell({
@@ -59,8 +56,8 @@ function Cell({
 /* Hero booking bar. Posts a plain GET form to /reserver, which opens with everything pre-filled. */
 export default function QuickBook({ today, places, perKm, perDay, currency }: Props) {
   const [mode, setMode] = useState<Mode>("transfert");
-  const [a, setA] = useState<Place | null>(null);
-  const [b, setB] = useState<Place | null>(null);
+  const [a, setA] = useState<Spot | null>(null);
+  const [b, setB] = useState<Spot | null>(null);
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [open, setOpen] = useState<null | "a" | "b" | "from" | "to">(null);
@@ -78,19 +75,16 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
     );
 
   /* ---------- places ---------- */
-  const choosePlace = (p: Place) => {
+  const choosePlace = (p: Spot) => {
     if (open === "a") {
       setA(p);
-      if (b?.id === p.id) setB(null);
-      setOpen(range ? null : "b");
+      setOpen(range || b ? null : "b");
     } else {
       setB(p);
       setOpen(null);
     }
   };
-  const groups = Object.entries(
-    places.reduce<Record<string, Place[]>>((g, p) => ((g[KIND[p.kind]?.group ?? "Autres"] ??= []).push(p), g), {}),
-  );
+  const frequent: Spot[] = places.map((p) => ({ label: p.name, lat: p.lat, lng: p.lng, kind: p.kind }));
 
   /* ---------- dates ---------- */
   const pickDay = (d: string) => {
@@ -147,8 +141,8 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
         className={`quick relative grid grid-cols-1 gap-1.5 rounded-[26px] p-2 lg:items-center lg:gap-1 ${range ? "lg:grid-cols-[auto_minmax(0,1fr)_minmax(0,1.25fr)_auto]" : "lg:grid-cols-[auto_minmax(0,2.3fr)_minmax(0,0.8fr)_auto]"}`}
       >
         <input type="hidden" name="mode" value={mode} />
-        {a && <input type="hidden" name="a" value={a.id} />}
-        {!range && b && <input type="hidden" name="b" value={b.id} />}
+        {a && <input type="hidden" name="a" value={encode(a)} />}
+        {!range && b && <input type="hidden" name="b" value={encode(b)} />}
         {from && <input type="hidden" name="from" value={from} />}
         {range && to && <input type="hidden" name="to" value={to} />}
 
@@ -180,11 +174,11 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
         {/* where */}
         <div ref={where} className={`grid gap-1.5 lg:gap-0 ${range ? "grid-cols-1" : "grid-cols-1 sm:grid-cols-2"} lg:relative`}>
           <Cell icon="pin" label={range ? "Prise en charge" : "Départ"} active={open === "a"} onClick={() => toggle("a")}>
-            {value(a?.name, range ? "Où récupérer la voiture ?" : "D'où partez-vous ?")}
+            {value(a && shortLabel(a.label), range ? "Adresse, hôtel, aéroport…" : "D'où partez-vous ?")}
           </Cell>
           {!range && (
             <Cell icon="route" label="Destination" active={open === "b"} onClick={() => toggle("b")} className="lg:before:absolute lg:before:inset-y-3 lg:before:left-0 lg:before:w-px lg:before:bg-line">
-              {value(b?.name, "Où allez-vous ?")}
+              {value(b && shortLabel(b.label), "Où allez-vous ?")}
             </Cell>
           )}
         </div>
@@ -227,46 +221,19 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
                   className={`flex min-h-11 cursor-pointer items-center gap-2 rounded-xl px-3 text-left ${open === k ? "bg-white/10 text-ink" : "text-mist"}`}
                 >
                   <span className={`grid size-5 shrink-0 place-items-center rounded-full text-[0.6rem] font-bold text-[#02211f] ${k === "a" ? "bg-aqua" : "bg-sand"}`}>{k.toUpperCase()}</span>
-                  <span className="truncate">{(k === "a" ? a?.name : b?.name) ?? (k === "a" ? "Départ" : "Destination")}</span>
+                  <span className="truncate">{(k === "a" ? a && shortLabel(a.label) : b && shortLabel(b.label)) ?? (k === "a" ? "Départ" : "Destination")}</span>
                 </button>
               ))}
             </div>
           )}
-          <div className="flex flex-col gap-3">
-            {groups.map(([g, list]) => (
-              <div key={g}>
-                <p className="mb-1 px-1 text-[0.66rem] font-semibold tracking-[0.18em] text-fog uppercase">{g}</p>
-                <ul className="flex flex-col gap-0.5">
-                  {list.map((p) => {
-                    const on = (open === "a" ? a : b)?.id === p.id;
-                    const other = (open === "a" ? b : a)?.id === p.id;
-                    return (
-                      <li key={p.id}>
-                        <button
-                          type="button"
-                          disabled={other && !range}
-                          onClick={() => choosePlace(p)}
-                          className={`flex min-h-12 w-full cursor-pointer items-center gap-3 rounded-2xl px-3 text-left transition-colors disabled:cursor-default disabled:opacity-35 ${on ? "bg-aqua/15" : "hover:bg-white/[0.07]"}`}
-                        >
-                          <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/5 text-sm text-aqua" aria-hidden="true">
-                            {KIND[p.kind]?.icon ?? "●"}
-                          </span>
-                          <span className={`flex-1 ${on ? "font-semibold" : ""}`}>{p.name}</span>
-                          {on && <Icon name="check" size={18} />}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-          <p className="mt-3 flex items-start gap-2 rounded-2xl bg-white/[0.04] p-3 text-xs text-mist">
-            <span className="text-aqua">
-              <Icon name="pin" size={16} />
-            </span>
-            Une autre adresse, un hôtel ou un point précis ? Vous pourrez la chercher ou la placer sur la carte à l&apos;étape suivante.
-          </p>
+          <PlaceSearch
+            key={open ?? "none"}
+            frequent={frequent}
+            current={open === "b" ? b : a}
+            exclude={range ? null : open === "b" ? a : b}
+            onPick={choosePlace}
+            placeholder={open === "b" ? "Rechercher la destination" : range ? "Rechercher le lieu de prise en charge" : "Rechercher le point de départ"}
+          />
         </Popover>
 
         {/* ---------- date panel ---------- */}

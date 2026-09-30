@@ -899,3 +899,19 @@
     }
   }
 }
+
+/* slim scrollbars inside the floating panels instead of the system's grey bar */
+.picker-pop,
+.picker-sheet {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(134 207 207 / 0.35) transparent;
+}
+.picker-pop::-webkit-scrollbar,
+.picker-sheet::-webkit-scrollbar {
+  width: 6px;
+}
+.picker-pop::-webkit-scrollbar-thumb,
+.picker-sheet::-webkit-scrollbar-thumb {
+  border-radius: 6px;
+  background: rgb(134 207 207 / 0.35);
+}

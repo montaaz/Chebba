@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import SiteHeader from "@/components/SiteHeader";
 import Wizard from "@/components/booking/Wizard";
 import { getUser } from "@/lib/server/auth";
+import { inArea } from "@/lib/server/geo";
+import { clean } from "@/lib/validate";
 import { getActiveCars, getActivePlaces, getSettings } from "@/lib/server/settings";
 
 export const metadata: Metadata = {
@@ -17,9 +19,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const [user, cars, places, settings] = await Promise.all([getUser(), getActiveCars(), getActivePlaces(), getSettings()]);
   const day = (v: unknown) => (typeof v === "string" && DATE.test(v) ? `${v}T10:00` : "");
   // places chosen in the home-page bar arrive as frequent-place ids
+  // "lat,lng,label"; anything outside Tunisia or malformed is simply ignored
   const place = (v: unknown) => {
-    const p = typeof v === "string" ? places.find((x) => String(x.id) === v) : undefined;
-    return p ? { label: p.name, lat: p.lat, lng: p.lng } : null;
+    if (typeof v !== "string") return null;
+    const m = v.match(/^(-?\d{1,3}\.\d{1,7}),(-?\d{1,3}\.\d{1,7}),(.{1,200})$/);
+    if (!m) return null;
+    const lat = Number(m[1]), lng = Number(m[2]);
+    const label = clean(m[3], 200);
+    return label && inArea(lat, lng) ? { label, lat, lng } : null;
   };
 
   return (
