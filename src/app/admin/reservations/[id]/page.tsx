@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { setStatusAction } from "@/app/actions/admin";
 import Avatar from "@/components/app/Avatar";
-import RouteSketch from "@/components/app/RouteSketch";
+import TripMap from "@/components/app/TripMap";
 import StatusSteps from "@/components/app/StatusSteps";
 import NoteForm from "@/components/admin/NoteForm";
 import Icon from "@/components/Icon";
@@ -99,10 +99,12 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <div className="flex flex-col gap-5">
           <section className={`${PANEL} overflow-hidden p-0!`}>
             {r.kind === "transfer" && (r.route_polyline || r.dropoff_lat) && (
-              <div className="relative aspect-[5/3] border-b border-hair bg-black/20 sm:aspect-[2/1]">
-                <RouteSketch polyline={r.route_polyline} from={{ lat: r.pickup_lat, lng: r.pickup_lng }} to={{ lat: r.dropoff_lat, lng: r.dropoff_lng }} className="absolute inset-0 h-full w-full" />
+              <div className="relative h-[clamp(260px,42vh,440px)] border-b border-hair bg-black/20">
+                <div className="absolute inset-0">
+                  <TripMap polyline={r.route_polyline} pickup={{ label: r.pickup_label, lat: r.pickup_lat, lng: r.pickup_lng }} dropoff={{ label: r.dropoff_label, lat: r.dropoff_lat, lng: r.dropoff_lng }} />
+                </div>
                 {map && (
-                  <a href={map} target="_blank" rel="noopener noreferrer" className="absolute right-3 bottom-3 inline-flex min-h-11 items-center gap-1.5 rounded-full bg-night/85 px-4 text-xs font-semibold backdrop-blur hover:text-aqua">
+                  <a href={map} target="_blank" rel="noopener noreferrer" className="absolute bottom-3 left-3 z-[500] inline-flex min-h-11 items-center gap-1.5 rounded-full bg-night/85 px-4 text-xs font-semibold backdrop-blur hover:text-aqua">
                     Ouvrir la carte <Icon name="external" size={14} />
                   </a>
                 )}

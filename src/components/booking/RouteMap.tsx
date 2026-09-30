@@ -17,7 +17,8 @@ type Props = {
   pickup: Point | null;
   dropoff: Point | null;
   polyline: string;
-  onPick: (lat: number, lng: number) => void;
+  /* omitted: a read-only map (reservation pages) — tapping it does nothing */
+  onPick?: (lat: number, lng: number) => void;
 };
 
 /* The map library is only downloaded on the booking page, after first paint. */
@@ -79,7 +80,7 @@ export default function RouteMap({ pickup, dropoff, polyline, onPick }: Props) {
         minZoom: 5,
         subdomains: "abc",
       }).addTo(m);
-      m.on("click", (e) => pick.current(e.latlng.lat, e.latlng.lng));
+      m.on("click", (e) => pick.current?.(e.latlng.lat, e.latlng.lng));
       layer.current = L.layerGroup().addTo(m);
       map.current = m;
       draw();

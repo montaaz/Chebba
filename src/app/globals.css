@@ -754,11 +754,14 @@
 .route-map .leaflet-tile-pane {
   filter: grayscale(1) invert(1) sepia(0.35) hue-rotate(135deg) saturate(1.5) brightness(0.92) contrast(0.92);
 }
-/* The map box sits at a fractional pixel position on most phones, which leaves hairline
-   gaps between tiles; half a pixel of overlap closes them without visibly scaling the tiles */
-.route-map.leaflet-container .leaflet-tile {
-  width: 256.5px !important;
-  height: 256.5px !important;
+/* Tile seams. The map library hides gaps by adding overlapping tile edges together
+   (mix-blend-mode: plus-lighter), which our colour filter turns into a dark line.
+   Instead: tiles overlap by one pixel and simply stack. Measured clean at pixel
+   ratios 1, 2, 2.625 and 3. */
+.route-map.leaflet-container img.leaflet-tile {
+  mix-blend-mode: normal;
+  width: 257px !important;
+  height: 257px !important;
 }
 /* keep the credit line inside the rounded corner */
 .route-map.leaflet-container .leaflet-bottom.leaflet-right {

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import AppShell from "@/components/app/AppShell";
 import CancelButton from "@/components/app/CancelButton";
-import RouteSketch from "@/components/app/RouteSketch";
+import TripMap from "@/components/app/TripMap";
 import StatusSteps from "@/components/app/StatusSteps";
 import Icon from "@/components/Icon";
 import { PANEL, StatusBadge } from "@/components/ui";
@@ -57,8 +57,10 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <section className={`${PANEL} overflow-hidden p-0!`}>
           {r.kind === "transfer" && (r.route_polyline || r.dropoff_lat) && (
-            <div className="relative aspect-[5/3] border-b border-hair bg-black/20">
-              <RouteSketch polyline={r.route_polyline} from={{ lat: r.pickup_lat, lng: r.pickup_lng }} to={{ lat: r.dropoff_lat, lng: r.dropoff_lng }} className="absolute inset-0 h-full w-full" />
+            <div className="relative h-[clamp(240px,38vh,400px)] border-b border-hair bg-black/20">
+              <div className="absolute inset-0">
+                  <TripMap polyline={r.route_polyline} pickup={{ label: r.pickup_label, lat: r.pickup_lat, lng: r.pickup_lng }} dropoff={{ label: r.dropoff_label, lat: r.dropoff_lat, lng: r.dropoff_lng }} />
+                </div>
             </div>
           )}
           <div className="p-5 sm:p-6">
@@ -133,6 +135,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             </ol>
           </section>
 
+          {(settings.contact_whatsapp || settings.contact_phone || canCancel) && (
           <section className={`${PANEL} flex flex-col gap-2`}>
             <h2 className="mb-1 text-base">Besoin d&apos;aide ?</h2>
             {settings.contact_whatsapp && (
@@ -147,6 +150,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             )}
             {canCancel && <CancelButton id={r.id} />}
           </section>
+          )}
         </div>
       </div>
     </AppShell>
