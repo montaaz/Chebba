@@ -201,9 +201,21 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
     if (!chosen || sending) return;
     setSending(true);
     setError("");
+    // Read what is really in the fields: phone autofill (iOS, Brave, Chrome) fills them
+    // on screen without always telling React, which left e-mail or password empty.
+    const fd = new FormData(e.currentTarget as HTMLFormElement);
+    const val = (k: string, fallback: string) => {
+      const v = fd.get(k);
+      return typeof v === "string" && v !== "" ? v : fallback;
+    };
+    const f = { name: val("name", name), phone: val("phone", phone), email: val("email", email).trim(), password: val("password", password) };
+    setName(f.name);
+    setPhone(f.phone);
+    setEmail(f.email);
+    setPassword(f.password);
     const result = await bookAction(
-      { ...trip, carId: chosen.carId, passengers, customerName: name, customerPhone: phone, note },
-      user ? undefined : { mode, name, email, phone, password },
+      { ...trip, carId: chosen.carId, passengers, customerName: f.name, customerPhone: f.phone, note },
+      user ? undefined : { mode, name: f.name, email: f.email, phone: f.phone, password: f.password },
     );
     setSending(false);
     if (!result.ok) return setError(result.error);
@@ -472,11 +484,11 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                   <>
                     <label className={FIELD}>
                       <span className={LABEL}>Nom complet</span>
-                      <input className={INPUT} value={name} maxLength={80} autoComplete="name" required onChange={(e) => setName(e.target.value)} />
+                      <input className={INPUT} name="name" value={name} maxLength={80} autoComplete="name" required onChange={(e) => setName(e.target.value)} />
                     </label>
                     <label className={FIELD}>
                       <span className={LABEL}>Téléphone</span>
-                      <input className={INPUT} value={phone} maxLength={24} type="tel" inputMode="tel" autoComplete="tel" required onChange={(e) => setPhone(e.target.value)} />
+                      <input className={INPUT} name="phone" value={phone} maxLength={24} type="tel" inputMode="tel" autoComplete="tel" required onChange={(e) => setPhone(e.target.value)} />
                     </label>
                   </>
                 )}
@@ -484,12 +496,13 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                   <>
                     <label className={FIELD}>
                       <span className={LABEL}>E-mail</span>
-                      <input className={INPUT} value={email} maxLength={160} type="email" autoComplete="email" required onChange={(e) => setEmail(e.target.value)} />
+                      <input className={INPUT} name="email" value={email} maxLength={160} type="email" inputMode="email" autoCapitalize="off" autoComplete="email" required onChange={(e) => setEmail(e.target.value)} />
                     </label>
                     <label className={FIELD}>
                       <span className={LABEL}>{mode === "signup" ? "Créez un mot de passe" : "Mot de passe"}</span>
                       <PasswordInput
                         className={INPUT}
+                        name="password"
                         value={password}
                         maxLength={200}
                         minLength={8}
