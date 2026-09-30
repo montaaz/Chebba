@@ -16,6 +16,11 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   const [user, cars, places, settings] = await Promise.all([getUser(), getActiveCars(), getActivePlaces(), getSettings()]);
   const day = (v: unknown) => (typeof v === "string" && DATE.test(v) ? `${v}T10:00` : "");
+  // places chosen in the home-page bar arrive as frequent-place ids
+  const place = (v: unknown) => {
+    const p = typeof v === "string" ? places.find((x) => String(x.id) === v) : undefined;
+    return p ? { label: p.name, lat: p.lat, lng: p.lng } : null;
+  };
 
   return (
     <>
@@ -28,7 +33,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           currency={settings.currency}
           minLeadHours={settings.min_lead_hours}
           whatsapp={settings.contact_whatsapp}
-          initial={{ kind: q.mode === "location" ? "rental" : "transfer", startAt: day(q.from), endAt: day(q.to) }}
+          initial={{ kind: q.mode === "location" ? "rental" : "transfer", startAt: day(q.from), endAt: day(q.to), pickup: place(q.a), dropoff: place(q.b) }}
         />
       </main>
     </>

@@ -372,7 +372,7 @@
     position: relative;
     z-index: 3;
     width: 100%;
-    max-width: 1020px;
+    max-width: 1180px;
     animation: rise 0.9s var(--out) 0.45s both;
   }
 
@@ -853,6 +853,49 @@
   @keyframes fade-in {
     from {
       opacity: 0;
+    }
+  }
+}
+
+/* ============ HERO BOOKING BAR ============ */
+@layer components {
+  /* glass bar with a soft teal light running along its edge */
+  .quick {
+    background:
+      linear-gradient(180deg, rgb(3 40 43 / 0.82), rgb(2 26 28 / 0.88)) padding-box,
+      linear-gradient(120deg, rgb(134 207 207 / 0.55), rgb(134 207 207 / 0.08) 30%, rgb(255 228 211 / 0.08) 70%, rgb(134 207 207 / 0.45)) border-box;
+    border: 1px solid transparent;
+    box-shadow:
+      0 40px 80px -40px rgb(0 0 0 / 0.9),
+      0 0 60px -20px rgb(76 156 157 / 0.35);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+  .quick-go {
+    position: relative;
+    overflow: hidden;
+    font-weight: 700;
+  }
+  .quick-go::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(100deg, transparent 35%, rgb(255 255 255 / 0.3) 50%, transparent 65%);
+    transform: translateX(-120%);
+    animation: sweep 5s var(--ease-soft) 2s infinite;
+    pointer-events: none;
+  }
+  .quick-go:hover::after {
+    animation-duration: 1.2s;
+    animation-delay: 0s;
+  }
+  @keyframes sweep {
+    0%,
+    70% {
+      transform: translateX(-120%);
+    }
+    100% {
+      transform: translateX(120%);
     }
   }
 }

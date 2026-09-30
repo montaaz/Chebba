@@ -29,7 +29,7 @@ type Props = {
   currency: string;
   minLeadHours: number;
   whatsapp: string;
-  initial: { kind: Kind; startAt: string; endAt: string };
+  initial: { kind: Kind; startAt: string; endAt: string; pickup?: Point | null; dropoff?: Point | null };
 };
 
 const STEPS = ["Trajet", "Véhicule", "Coordonnées"];
@@ -41,11 +41,19 @@ const localInput = (d: Date) =>
 export default function Wizard({ cars, places, user, currency, minLeadHours, whatsapp, initial }: Props) {
   const [kind, setKind] = useState<Kind>(initial.kind);
   const [step, setStep] = useState(0);
-  const [pickup, setPickup] = useState<Point | null>(null);
-  const [dropoff, setDropoff] = useState<Point | null>(null);
+  const [pickup, setPickup] = useState<Point | null>(initial.pickup ?? null);
+  const [dropoff, setDropoff] = useState<Point | null>(initial.dropoff ?? null);
   const [target, setTarget] = useState<"pickup" | "dropoff">("pickup");
   const [roundTrip, setRoundTrip] = useState(false);
-  const [startAt, setStartAt] = useState(initial.startAt);
+  // a date chosen on the home page may come with a time that is already too soon: move it to the first allowed quarter hour
+  const [startAt, setStartAt] = useState(() => {
+    const v = initial.startAt;
+    if (!v) return "";
+    const min = new Date(Date.now() + minLeadHours * 3_600_000 + 300_000);
+    if (new Date(v) >= min) return v;
+    min.setMinutes(Math.ceil(min.getMinutes() / 15) * 15, 0, 0);
+    return localInput(min).slice(0, 10) === v.slice(0, 10) ? localInput(min) : v;
+  });
   const [endAt, setEndAt] = useState(initial.endAt);
   const [passengers, setPassengers] = useState(1);
   const [carId, setCarId] = useState<number | null>(null);
