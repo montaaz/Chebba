@@ -751,8 +751,11 @@
   z-index: 0;
 }
 /* the light street tiles, re-toned to sit in the dark teal interface */
-.route-map .leaflet-tile-pane {
+/* the dark teal look is baked into each tile once, when it is drawn — not re-applied
+   to the whole moving layer on every frame of a pan or zoom (that is what made phones lag) */
+.route-map.leaflet-container img.leaflet-tile {
   filter: grayscale(1) invert(1) sepia(0.35) hue-rotate(135deg) saturate(1.5) brightness(0.92) contrast(0.92);
+  will-change: auto;
 }
 /* Tile seams. The map library hides gaps by adding overlapping tile edges together
    (mix-blend-mode: plus-lighter), which our colour filter turns into a dark line.

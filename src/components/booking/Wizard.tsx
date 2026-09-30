@@ -59,6 +59,8 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
   const [carId, setCarId] = useState<number | null>(null);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
+  // Continue was tapped while the price was still on its way: carry on as soon as it lands
+  const [waiting, setWaiting] = useState(false);
   const [error, setError] = useState("");
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState<Done | null>(null);
@@ -173,12 +175,25 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
       if (isTransfer && !dropoff) return setError("Choisissez votre destination.");
       if (!startAt) return setError("Indiquez la date et l'heure de départ.");
       if (!isTransfer && !endAt) return setError("Indiquez la date de retour.");
-      if (!quote) return setError(error || "Le calcul du prix est en cours, un instant…");
+      if (!quote) {
+        if (error) return; // the reason is already on screen (no route, out of area…)
+        setWaiting(true);
+        return;
+      }
       if (soldOut) return setError(SOLD_OUT);
     }
     if (step === 1 && !chosen) return setError("Choisissez un véhicule disponible.");
     go(step + 1);
   };
+
+  useEffect(() => {
+    if (!waiting) return;
+    if (quote) {
+      setWaiting(false);
+      next();
+    } else if (error || !ready) setWaiting(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [waiting, quote, error, ready]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -529,11 +544,19 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                 )}
               </p>
               {step < 2 ? (
-                <button key="next" type="button" className="btn btn--solid min-h-12 shrink-0 max-[379px]:px-4" onClick={next}>
-                  Continuer
-                  <span className="max-[379px]:hidden">
-                    <Icon name="arrow" size={18} />
-                  </span>
+                <button key="next" type="button" className="btn btn--solid min-h-12 shrink-0 max-[379px]:px-4" onClick={next} disabled={waiting} aria-busy={waiting}>
+                  {waiting ? (
+                    <>
+                      <span className="size-4 animate-spin rounded-full border-2 border-[#02211f] border-t-transparent" aria-hidden="true" /> Calcul…
+                    </>
+                  ) : (
+                    <>
+                      Continuer
+                      <span className="max-[379px]:hidden">
+                        <Icon name="arrow" size={18} />
+                      </span>
+                    </>
+                  )}
                 </button>
               ) : (
                 <button key="confirm" type="submit" className="btn btn--solid min-h-12 shrink-0 max-[379px]:px-4" disabled={sending || !chosen}>

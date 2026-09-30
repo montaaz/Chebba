@@ -31,9 +31,13 @@ export default function RouteMap({ pickup, dropoff, polyline, onPick }: Props) {
   const pick = useRef(onPick);
   pick.current = onPick;
 
-  const draw = () => {
+  const touched = useRef(false); // the person moved the map themselves: stop re-framing it
+
+  /* markers and route: redrawn only when the trip changes */
+  const draw = (refit: boolean) => {
     const L = leaflet.current;
-    if (!L || !map.current || !layer.current) return;
+    const m = map.current;
+    if (!L || !m || !layer.current) return;
     layer.current.clearLayers();
 
     const pin = (p: Point, kind: "a" | "b") =>
@@ -53,14 +57,24 @@ export default function RouteMap({ pickup, dropoff, polyline, onPick }: Props) {
 
     const path = polyline && pickup && dropoff ? decodePolyline(polyline) : [];
     if (path.length > 1) {
-      L.polyline(path, { color: "#021a1c", weight: 9, opacity: 0.55 }).addTo(layer.current);
-      L.polyline(path, { color: "#86cfcf", weight: 4.5, opacity: 1, lineCap: "round" }).addTo(layer.current);
-      map.current.fitBounds(L.latLngBounds(path), { paddingTopLeft: [70, 56], paddingBottomRight: [40, 34], maxZoom: 14 });
-    } else if (pickup && dropoff) {
-      map.current.fitBounds(L.latLngBounds([pickup, dropoff].map((p) => [p.lat, p.lng])), { paddingTopLeft: [70, 60], paddingBottomRight: [48, 40] });
-    } else if (pickup ?? dropoff) {
+      L.polyline(path, { color: "#021a1c", weight: 9, opacity: 0.55, interactive: false }).addTo(layer.current);
+      L.polyline(path, { color: "#86cfcf", weight: 4.5, opacity: 1, lineCap: "round", interactive: false }).addTo(layer.current);
+    }
+    if (refit) frame();
+  };
+
+  /* fit the view to the trip — without animation, so it never fights a finger on the map */
+  const frame = () => {
+    const L = leaflet.current;
+    const m = map.current;
+    if (!L || !m) return;
+    const path = polyline && pickup && dropoff ? decodePolyline(polyline) : [];
+    const opts = { paddingTopLeft: [70, 56] as [number, number], paddingBottomRight: [40, 34] as [number, number], maxZoom: 14, animate: false };
+    if (path.length > 1) m.fitBounds(L.latLngBounds(path), opts);
+    else if (pickup && dropoff) m.fitBounds(L.latLngBounds([pickup, dropoff].map((p) => [p.lat, p.lng])), opts);
+    else if (pickup ?? dropoff) {
       const p = (pickup ?? dropoff)!;
-      map.current.setView([p.lat, p.lng], 12);
+      m.setView([p.lat, p.lng], 12, { animate: false });
     }
   };
 
@@ -71,24 +85,48 @@ export default function RouteMap({ pickup, dropoff, polyline, onPick }: Props) {
       if (dead || !el.current || map.current) return;
       const L = mod.default ?? mod;
       leaflet.current = L;
-      const m = L.map(el.current, { zoomControl: true, tapHold: false, attributionControl: false, maxBounds: [[28, 5], [39.5, 14]] });
-      m.fitBounds(TUNISIA);
+      const m = L.map(el.current, {
+        zoomControl: true,
+        tapHold: false,
+        attributionControl: false,
+        maxBounds: [
+          [28, 5],
+          [39.5, 14],
+        ],
+        // no per-tile fade: every fading tile is a separate GPU layer, costly on phones
+        fadeAnimation: false,
+        zoomSnap: 0.5,
+      });
+      m.fitBounds(TUNISIA, { animate: false });
       // a short, wide phone map would otherwise zoom out to the whole Mediterranean
-      if (m.getZoom() < 6) m.setView([35.6, 9.9], 6);
+      if (m.getZoom() < 6) m.setView([35.6, 9.9], 6, { animate: false });
       L.tileLayer(TILES, {
-        maxZoom: 18,
+        maxZoom: 17,
         minZoom: 5,
         subdomains: "abc",
+        // fewer tiles in flight: only what is on screen plus one ring around it
+        keepBuffer: 1,
+        updateWhenZooming: false,
+        updateWhenIdle: true,
       }).addTo(m);
       m.on("click", (e) => pick.current?.(e.latlng.lat, e.latlng.lng));
+      m.on("dragstart zoomstart", (e) => {
+        // only a gesture counts; zooms we start ourselves carry no original event
+        if ((e as { originalEvent?: Event }).originalEvent || e.type === "dragstart") touched.current = true;
+      });
       layer.current = L.layerGroup().addTo(m);
       map.current = m;
-      draw();
-      // rotation, the on-screen keyboard or a step change all resize the box
+      draw(true);
+      // rotation or a layout change resizes the box: resize the map, re-frame only if untouched
+      let last = el.current.offsetWidth + "x" + el.current.offsetHeight;
       watcher = new ResizeObserver(() => {
-        if (!el.current?.offsetWidth) return;
-        m.invalidateSize();
-        draw();
+        const box = el.current;
+        if (!box?.offsetWidth) return;
+        const size = box.offsetWidth + "x" + box.offsetHeight;
+        if (size === last) return;
+        last = size;
+        m.invalidateSize({ animate: false });
+        if (!touched.current) frame();
       });
       watcher.observe(el.current);
     });
@@ -101,8 +139,12 @@ export default function RouteMap({ pickup, dropoff, polyline, onPick }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(draw, [pickup, dropoff, polyline]);
+  // a new trip: redraw and frame it, even if the map was moved before
+  useEffect(() => {
+    touched.current = false;
+    draw(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pickup, dropoff, polyline]);
 
   return (
     <div className="relative h-full w-full">
