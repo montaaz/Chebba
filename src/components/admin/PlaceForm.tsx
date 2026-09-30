@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { savePlaceAction, type FormState } from "@/app/actions/admin";
+import Select from "@/components/pickers/Select";
 import { FIELD, INPUT, LABEL, Notice } from "@/components/ui";
 
 export default function PlaceForm() {
@@ -14,13 +15,19 @@ export default function PlaceForm() {
       </label>
       <label className={FIELD}>
         <span className={LABEL}>Type</span>
-        <select className={INPUT} name="kind" defaultValue="city">
-          <option className="bg-night-2" value="airport">Aéroport</option>
-          <option className="bg-night-2" value="agency">Agence</option>
-          <option className="bg-night-2" value="city">Ville</option>
-          <option className="bg-night-2" value="hotel">Hôtel</option>
-          <option className="bg-night-2" value="port">Port</option>
-        </select>
+<Select
+          label="Type"
+          name="kind"
+          defaultValue="city"
+          className={INPUT}
+          options={[
+            { value: "airport", label: "Aéroport" },
+            { value: "agency", label: "Agence" },
+            { value: "city", label: "Ville" },
+            { value: "hotel", label: "Hôtel" },
+            { value: "port", label: "Port" },
+          ]}
+        />
       </label>
       <label className={FIELD}>
         <span className={LABEL}>Latitude</span>

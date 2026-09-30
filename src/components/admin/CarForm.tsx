@@ -2,6 +2,7 @@
 
 import { useActionState } from "react";
 import { saveCarAction, type FormState } from "@/app/actions/admin";
+import Select from "@/components/pickers/Select";
 import { CHECK, FIELD, INPUT, LABEL, Notice } from "@/components/ui";
 import type { Car } from "@/lib/types";
 
@@ -39,30 +40,35 @@ export default function CarForm({ car, currency, kmRate, images }: Props) {
         {text("sort_order", "Ordre d'affichage", { type: "number" })}
         <label className={FIELD}>
           <span className={LABEL}>Boîte</span>
-          <select className={INPUT} name="transmission" defaultValue={car?.transmission ?? "automatic"}>
-            <option className="bg-night-2" value="automatic">Automatique</option>
-            <option className="bg-night-2" value="manual">Manuelle</option>
-          </select>
+          <Select
+            label="Boîte"
+            name="transmission"
+            defaultValue={car?.transmission ?? "automatic"}
+            className={INPUT}
+            options={[
+              { value: "automatic", label: "Automatique" },
+              { value: "manual", label: "Manuelle" },
+            ]}
+          />
         </label>
         <label className={FIELD}>
           <span className={LABEL}>Énergie</span>
-          <select className={INPUT} name="fuel" defaultValue={car?.fuel ?? "petrol"}>
-            <option className="bg-night-2" value="petrol">Essence</option>
-            <option className="bg-night-2" value="diesel">Diesel</option>
-            <option className="bg-night-2" value="hybrid">Hybride</option>
-            <option className="bg-night-2" value="electric">Électrique</option>
-          </select>
+          <Select
+            label="Énergie"
+            name="fuel"
+            defaultValue={car?.fuel ?? "petrol"}
+            className={INPUT}
+            options={[
+              { value: "petrol", label: "Essence" },
+              { value: "diesel", label: "Diesel" },
+              { value: "hybrid", label: "Hybride" },
+              { value: "electric", label: "Électrique" },
+            ]}
+          />
         </label>
-        <label className={FIELD}>
+        <label className={`${FIELD} max-sm:col-span-2`}>
           <span className={LABEL}>Photo</span>
-          <select className={INPUT} name="image" defaultValue={car?.image ?? ""}>
-            <option className="bg-night-2" value="">Aucune</option>
-            {images.map((i) => (
-              <option className="bg-night-2" key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
+          <Select label="Photo" name="image" defaultValue={car?.image ?? ""} className={INPUT} options={[{ value: "", label: "Aucune" }, ...images.map((i) => ({ value: i, label: i }))]} />
         </label>
       </div>
       <div className="flex flex-wrap gap-x-6">

@@ -10,6 +10,7 @@ import { FIELD, INPUT, LABEL, Notice, PANEL } from "@/components/ui";
 import { carName, duration, money } from "@/lib/format";
 import type { Car, Kind, Place, Point, Price, Route, User } from "@/lib/types";
 import { messageToAgency, waLink } from "@/lib/whatsapp";
+import DateTimeField from "../pickers/DateTimeField";
 import PlaceInput from "./PlaceInput";
 
 const RouteMap = dynamic(() => import("./RouteMap"), {
@@ -327,37 +328,30 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
               )}
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <label className={FIELD}>
-                  <span className={LABEL}>{isTransfer ? "Date et heure de départ" : "Départ"}</span>
-                  <input
-                    className={INPUT}
-                    type="datetime-local"
-                    value={startAt}
-                    min={minStart}
-                    onChange={(e) => setStartAt(e.target.value)}
-                  />
-                </label>
+                <DateTimeField
+                  label={isTransfer ? "Date et heure de départ" : "Départ"}
+                  value={startAt}
+                  min={minStart}
+                  onChange={(v) => {
+                    setStartAt(v);
+                    // a return that now comes before the departure is no longer valid
+                    if (endAt && endAt <= v) setEndAt("");
+                  }}
+                />
                 {isTransfer ? (
-                  <label className="flex min-h-13 cursor-pointer items-center gap-3 self-end rounded-xl border border-hair bg-white/5 px-4 py-3">
-                    <input
-                      type="checkbox"
-                      className="size-6 accent-[#4c9c9d]"
-                      checked={roundTrip}
-                      onChange={(e) => setRoundTrip(e.target.checked)}
+                  <label className="flex min-h-13 cursor-pointer items-center justify-between gap-3 self-end rounded-xl border border-hair bg-white/5 px-4 py-3 transition-colors has-checked:border-aqua/50 has-checked:bg-aqua/10">
+                    <span>
+                      <span className="block text-sm font-semibold">Aller-retour</span>
+                      <span className="block text-xs text-fog">{roundTrip ? "Retour au point de départ inclus" : "Aller simple"}</span>
+                    </span>
+                    <input type="checkbox" className="peer sr-only" checked={roundTrip} onChange={(e) => setRoundTrip(e.target.checked)} />
+                    <span
+                      className="relative h-7 w-12 shrink-0 rounded-full bg-white/15 transition-colors peer-checked:bg-teal peer-focus-visible:ring-2 peer-focus-visible:ring-aqua after:absolute after:top-1 after:left-1 after:size-5 after:rounded-full after:bg-white after:shadow after:transition-transform after:duration-300 peer-checked:after:translate-x-5"
+                      aria-hidden="true"
                     />
-                    <span className="text-sm">Aller-retour</span>
                   </label>
                 ) : (
-                  <label className={FIELD}>
-                    <span className={LABEL}>Retour</span>
-                    <input
-                      className={INPUT}
-                      type="datetime-local"
-                      value={endAt}
-                      min={startAt || minStart}
-                      onChange={(e) => setEndAt(e.target.value)}
-                    />
-                  </label>
+                  <DateTimeField label="Retour" value={endAt} min={startAt || minStart} rangeStart={startAt ? startAt.slice(0, 10) : undefined} onChange={setEndAt} />
                 )}
               </div>
             </>

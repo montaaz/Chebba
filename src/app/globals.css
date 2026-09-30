@@ -827,3 +827,32 @@
     -webkit-touch-callout: none;
   }
 }
+
+/* ============ PICKERS ============ */
+@layer components {
+  .picker-pop {
+    animation: picker-in 0.22s var(--ease-expo) both;
+  }
+  .picker-sheet {
+    animation: sheet-in 0.36s var(--ease-expo) both;
+  }
+  .picker-backdrop {
+    animation: fade-in 0.25s ease both;
+  }
+  @keyframes picker-in {
+    from {
+      opacity: 0;
+      transform: translateY(-6px) scale(0.98);
+    }
+  }
+  @keyframes sheet-in {
+    from {
+      transform: translateY(100%);
+    }
+  }
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+  }
+}

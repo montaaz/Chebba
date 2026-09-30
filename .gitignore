@@ -12,3 +12,7 @@ next-env.d.ts
 # local tooling and crash data
 .qodo/
 .sentry-native/
+
+# Vercel variables file (contains the database password), under either name
+env.vercel
+*.vercel
