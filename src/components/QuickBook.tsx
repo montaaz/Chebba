@@ -9,8 +9,7 @@ import Popover from "./pickers/Popover";
 import Icon from "./Icon";
 
 type Mode = "transfert" | "location";
-type Place = { id: number; name: string; kind: string; lat: number; lng: number };
-type Props = { today: string; places: Place[]; perKm: number; perDay: number; currency: string };
+type Props = { today: string; perKm: number; perDay: number; currency: string };
 
 /* a place travels to the booking page as "lat,lng,label" */
 const encode = (p: Spot) => `${p.lat.toFixed(5)},${p.lng.toFixed(5)},${p.label}`;
@@ -54,7 +53,7 @@ function Cell({
 }
 
 /* Hero booking bar. Posts a plain GET form to /reserver, which opens with everything pre-filled. */
-export default function QuickBook({ today, places, perKm, perDay, currency }: Props) {
+export default function QuickBook({ today, perKm, perDay, currency }: Props) {
   const [mode, setMode] = useState<Mode>("transfert");
   const [a, setA] = useState<Spot | null>(null);
   const [b, setB] = useState<Spot | null>(null);
@@ -84,7 +83,6 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
       setOpen(null);
     }
   };
-  const frequent: Spot[] = places.map((p) => ({ label: p.name, lat: p.lat, lng: p.lng, kind: p.kind }));
 
   /* ---------- dates ---------- */
   const pickDay = (d: string) => {
@@ -228,7 +226,6 @@ export default function QuickBook({ today, places, perKm, perDay, currency }: Pr
           )}
           <PlaceSearch
             key={open ?? "none"}
-            frequent={frequent}
             current={open === "b" ? b : a}
             exclude={range ? null : open === "b" ? a : b}
             onPick={choosePlace}

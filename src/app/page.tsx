@@ -6,20 +6,20 @@ import Lightbox from "@/components/Lightbox";
 import Picture from "@/components/Picture";
 import QuickBook from "@/components/QuickBook";
 import { money } from "@/lib/format";
-import { getActiveCars, getActivePlaces, getSettings } from "@/lib/server/settings";
+import { getActiveCars, getSettings } from "@/lib/server/settings";
 import { ANGLES, CAR, FEATURES, INTERIOR, SITE, STATS, STEPS } from "@/lib/site";
-import type { Car, Place, Settings } from "@/lib/types";
+import type { Car, Settings } from "@/lib/types";
 
 /* Rebuilt in the background at most every 5 minutes; an admin save refreshes it at once. */
 export const revalidate = 300;
 
-async function load(): Promise<{ settings: Settings | null; cars: Car[]; places: Place[] }> {
+async function load(): Promise<{ settings: Settings | null; cars: Car[] }> {
   try {
-    const [settings, cars, places] = await Promise.all([getSettings(), getActiveCars(), getActivePlaces()]);
-    return { settings, cars, places };
+    const [settings, cars] = await Promise.all([getSettings(), getActiveCars()]);
+    return { settings, cars };
   } catch {
     // the showcase must still render if the database is unreachable
-    return { settings: null, cars: [], places: [] };
+    return { settings: null, cars: [] };
   }
 }
 
@@ -38,7 +38,7 @@ const PILL =
   "inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 py-2.5 text-[0.92rem] font-semibold transition-colors hover:border-aqua hover:bg-aqua/10";
 
 export default async function Home() {
-  const { settings, cars, places } = await load();
+  const { settings, cars } = await load();
   const currency = settings?.currency ?? "DT";
   const perDay = Math.min(...cars.filter((c) => c.for_rental && c.price_per_day > 0).map((c) => c.price_per_day));
   const perKm = settings?.price_per_km ?? 0;
@@ -116,7 +116,6 @@ export default async function Home() {
           <div className="hero__foot">
             <QuickBook
               today={today}
-              places={places.map((p) => ({ id: p.id, name: p.name, kind: p.kind, lat: p.lat, lng: p.lng }))}
               perKm={kmFrom}
               perDay={Number.isFinite(perDay) ? perDay : 0}
               currency={currency}

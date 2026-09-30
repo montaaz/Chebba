@@ -6,7 +6,6 @@ import Icon from "../Icon";
 export type Spot = { label: string; lat: number; lng: number; kind?: string };
 
 type Props = {
-  frequent: Spot[];
   /* the place on the other end of the trip, which cannot be chosen twice */
   exclude?: Spot | null;
   current?: Spot | null;
@@ -15,26 +14,19 @@ type Props = {
 };
 
 const RECENT_KEY = "chebba:recent-places";
-const KIND: Record<string, { icon: string; group: string }> = {
-  airport: { icon: "✈", group: "Aéroports" },
-  port: { icon: "⚓", group: "Ports" },
-  agency: { icon: "◆", group: "Agences" },
-  hotel: { icon: "★", group: "Hôtels" },
-  city: { icon: "●", group: "Villes" },
-};
 const same = (a?: Spot | null, b?: Spot | null) => !!a && !!b && Math.abs(a.lat - b.lat) < 1e-4 && Math.abs(a.lng - b.lng) < 1e-4;
 
 const readRecent = (): Spot[] => {
   try {
     const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]");
-    return Array.isArray(v) ? v.filter((p) => typeof p?.label === "string" && Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).slice(0, 4) : [];
+    return Array.isArray(v) ? v.filter((p) => typeof p?.label === "string" && Number.isFinite(p?.lat) && Number.isFinite(p?.lng)).slice(0, 6) : [];
   } catch {
     return [];
   }
 };
 const saveRecent = (p: Spot) => {
   try {
-    const list = [p, ...readRecent().filter((r) => !same(r, p))].slice(0, 4);
+    const list = [p, ...readRecent().filter((r) => !same(r, p))].slice(0, 6);
     localStorage.setItem(RECENT_KEY, JSON.stringify(list));
   } catch {
     /* private mode or storage blocked: recents are only a convenience */
@@ -47,8 +39,8 @@ const split = (label: string) => {
   return i < 0 ? { title: label, detail: "" } : { title: label.slice(0, i), detail: label.slice(i + 1).trim() };
 };
 
-/* Search any address in the service area, use the phone's position, or pick a recent / frequent place. */
-export default function PlaceSearch({ frequent, exclude, current, onPick, placeholder }: Props) {
+/* Search any address in the service area, use the phone's position, or pick one used before on this device. */
+export default function PlaceSearch({ exclude, current, onPick, placeholder }: Props) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Spot[]>([]);
   const [busy, setBusy] = useState(false);
@@ -164,11 +156,9 @@ export default function PlaceSearch({ frequent, exclude, current, onPick, placeh
     );
   };
 
-  const groups = Object.entries(frequent.reduce<Record<string, Spot[]>>((g, p) => ((g[KIND[p.kind ?? ""]?.group ?? "Lieux"] ??= []).push(p), g), {}));
-
   return (
     // a steady height on phones: the sheet must not jump while results come and go
-    <div className="flex flex-col gap-3 max-md:min-h-[62svh]">
+    <div className="flex flex-col gap-3 max-md:min-h-[55svh]">
       <div className="relative">
         <span className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-aqua">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
@@ -243,19 +233,38 @@ export default function PlaceSearch({ frequent, exclude, current, onPick, placeh
             </span>
           </button>
 
-          {recent.length > 0 && (
+          {recent.length > 0 ? (
             <div>
-              <p className="mb-1 px-1 text-[0.66rem] font-semibold tracking-[0.18em] text-fog uppercase">Récents</p>
+              <div className="mb-1 flex items-center justify-between px-1">
+                <p className="text-[0.66rem] font-semibold tracking-[0.18em] text-fog uppercase">Récemment utilisés</p>
+                <button
+                  type="button"
+                  className="min-h-9 cursor-pointer rounded-full px-2 text-xs text-fog hover:text-ink"
+                  onClick={() => {
+                    try {
+                      localStorage.removeItem(RECENT_KEY);
+                    } catch {
+                      /* nothing stored */
+                    }
+                    setRecent([]);
+                  }}
+                >
+                  Effacer
+                </button>
+              </div>
               <ul className="flex flex-col gap-0.5">{recent.map((p) => row(p, `r${p.lat},${p.lng}`, <Icon name="clock" size={17} />, same(p, current)))}</ul>
             </div>
+          ) : (
+            <p className="flex items-start gap-3 rounded-2xl bg-white/[0.03] px-3 py-4 text-sm text-mist">
+              <span className="mt-0.5 text-aqua">
+                <Icon name="pin" size={18} />
+              </span>
+              <span>
+                Tapez une adresse, un hôtel, un quartier ou un aéroport.
+                <span className="mt-0.5 block text-xs text-fog">Les lieux que vous choisissez seront gardés ici pour la prochaine fois.</span>
+              </span>
+            </p>
           )}
-
-          {groups.map(([g, list]) => (
-            <div key={g}>
-              <p className="mb-1 px-1 text-[0.66rem] font-semibold tracking-[0.18em] text-fog uppercase">{g}</p>
-              <ul className="flex flex-col gap-0.5">{list.map((p) => row(p, `f${p.lat},${p.lng}`, KIND[p.kind ?? ""]?.icon ?? "●", same(p, current)))}</ul>
-            </div>
-          ))}
         </>
       )}
     </div>
