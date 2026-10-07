@@ -5,7 +5,8 @@ import { fileURLToPath } from "node:url";
 
 export const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
-for (const name of [".env.local", ".env"]) {
+// .env.production is the private settings file on the self-hosted server
+for (const name of [".env.local", ".env.production", ".env"]) {
   const file = path.join(ROOT, name);
   if (!existsSync(file)) continue;
   for (const line of readFileSync(file, "utf8").split("\n")) {

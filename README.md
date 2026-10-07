@@ -116,6 +116,25 @@ Most clients are on phones, so phones are the reference layout:
 
 Checked at 320, 360, 375, 390, 412, 430, 600 and 768px wide, plus landscape.
 
+## Self-hosting (chebbautocar.com)
+
+On the server (same machine as the database):
+
+| What | Where |
+| --- | --- |
+| Code | `/var/www/chebba` (owner: system user `chebba`) |
+| Private settings | `/var/www/chebba/.env.production` (mode 600, never committed) |
+| Process | PM2 app `chebba` on `127.0.0.1:3100`, started at boot by `pm2-chebba.service` |
+| Web server | Nginx site `/etc/nginx/sites-available/chebba` |
+
+Update after pushing to GitHub:
+
+```bash
+sudo -u chebba -H /var/www/chebba/scripts/deploy-server.sh
+```
+
+Logs: `sudo -u chebba pm2 logs chebba`
+
 ## Before going live
 
 - **Map services.** Address search, routing and map tiles use free public servers
