@@ -107,7 +107,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ o
           <h2 className="mb-5 flex items-center gap-2 text-base">
             <Icon name="plus" size={19} /> Ajouter un véhicule
           </h2>
-          <p className="-mt-2 mb-4 text-sm text-mist">Après l&apos;ajout, la fiche du véhicule s&apos;ouvre pour ajouter ses photos (10 maximum).</p>
+          <p className="-mt-2 mb-4 text-sm text-mist">Choisissez ses photos ci-dessous (10 maximum) : elles s&apos;affichent dans la vitrine du site, avec le « Tour du propriétaire ».</p>
           <CarForm currency={s.currency} kmRate={s.price_per_km} images={images} />
         </section>
       </div>

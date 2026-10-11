@@ -1,10 +1,13 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useActionState, useEffect } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { saveCarAction, type FormState } from "@/app/actions/admin";
+import { uploadPhotoAction } from "@/app/actions/photos";
+import PhotoPicker, { type Pick } from "@/components/admin/PhotoPicker";
 import Select from "@/components/pickers/Select";
 import { CHECK, FIELD, INPUT, LABEL, Notice } from "@/components/ui";
+import { shrink } from "@/lib/shrink";
 import type { Car } from "@/lib/types";
 
 type Props = { car?: Car; currency: string; kmRate: number; images: string[] };
@@ -12,10 +15,40 @@ type Props = { car?: Car; currency: string; kmRate: number; images: string[] };
 export default function CarForm({ car, currency, kmRate, images }: Props) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveCarAction, {});
   const router = useRouter();
-  // a new vehicle: open its card so the photos can be added straight away
+  const [picks, setPicks] = useState<Pick[]>([]);
+  const [sending, setSending] = useState("");
+  const [photoError, setPhotoError] = useState("");
+  const handled = useRef<number | null>(null);
+  // a new vehicle: send the chosen photos one by one, then open its card
   useEffect(() => {
-    if (state.newId) router.push(`/admin/vehicules?ouvert=${state.newId}#car-${state.newId}`);
-  }, [state.newId, router]);
+    const carId = state.newId;
+    if (!carId || handled.current === carId) return;
+    handled.current = carId;
+    (async () => {
+      setPhotoError("");
+      let i = 0;
+      for (const p of picks) {
+        setSending(`Envoi des photos ${i + 1} / ${picks.length}…`);
+        try {
+          const fd = new FormData();
+          fd.set("carId", String(carId));
+          fd.set("photo", await shrink(p.file), "photo.jpg");
+          const r = await uploadPhotoAction(fd);
+          if (!r.ok) throw new Error(r.error);
+          i++;
+        } catch (e) {
+          setPhotoError(`Véhicule ajouté, mais ${picks.length - i} photo(s) non envoyée(s) : ${(e as Error).message} Ajoutez-les depuis sa fiche.`);
+          break;
+        }
+      }
+      picks.forEach((p) => URL.revokeObjectURL(p.url));
+      setPicks([]);
+      setSending("");
+      router.push(`/admin/vehicules?ouvert=${carId}#car-${carId}`);
+      router.refresh();
+    })();
+  }, [state.newId, picks, router]);
+  const busy = pending || !!sending;
   const text = (name: keyof Car, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className={`${FIELD} ${["make", "model", "price_per_day", "price_per_km"].includes(name) ? "max-sm:col-span-2" : ""}`}>
       <span className={LABEL}>{label}</span>
@@ -80,10 +113,12 @@ export default function CarForm({ car, currency, kmRate, images }: Props) {
         {check("for_transfer", "Proposé en transfert")}
         {check("for_rental", "Proposé en location")}
       </div>
+      {!car && <PhotoPicker picks={picks} onChange={setPicks} disabled={busy} />}
       {state.error && <Notice tone="error">{state.error}</Notice>}
-      {state.saved && <Notice tone="ok">{state.newId ? "Véhicule ajouté : ajoutez maintenant ses photos." : "Véhicule enregistré."}</Notice>}
-      <button className="btn btn--ghost self-start" type="submit" disabled={pending}>
-        {pending ? "Enregistrement…" : car ? "Enregistrer" : "Ajouter le véhicule"}
+      {photoError && <Notice tone="error">{photoError}</Notice>}
+      {state.saved && !sending && !photoError && <Notice tone="ok">{state.newId ? "Véhicule ajouté." : "Véhicule enregistré."}</Notice>}
+      <button className="btn btn--ghost self-start" type="submit" disabled={busy}>
+        {sending || (pending ? "Enregistrement…" : car ? "Enregistrer" : picks.length ? `Ajouter le véhicule et ${picks.length} photo${picks.length > 1 ? "s" : ""}` : "Ajouter le véhicule")}
       </button>
     </form>
   );
