@@ -64,8 +64,9 @@ const MARK = "seed:ibiza-photos";
 const marked = (await client.query("SELECT 1 FROM schema_migrations WHERE name = $1", [MARK])).rowCount;
 const ibiza = (await client.query("SELECT id FROM cars WHERE slug = 'seat-ibiza-fr'")).rows[0];
 const hasTable = (await client.query("SELECT to_regclass('car_photos') AS t")).rows[0].t;
-if (!marked && ibiza && hasTable) {
-  const { default: sharp } = await import("sharp");
+// sharp may not load on every machine (very old CPUs): then skip and try again on the next run
+const sharp = !marked && ibiza && hasTable ? await import("sharp").then((m) => m.default).catch((e) => console.warn(`Photo import skipped: ${e.message.split("\n")[0]}`)) : null;
+if (sharp) {
   const { readFile } = await import("node:fs/promises");
   const path = await import("node:path");
   const { ROOT } = await import("./db-env.mjs");

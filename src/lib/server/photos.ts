@@ -37,7 +37,12 @@ export async function processDocument(input: Buffer, turn = 0) {
   }
   if (!meta.format || !["jpeg", "png", "webp", "avif", "heif"].includes(meta.format)) throw new PhotoError("Format non pris en charge : utilisez JPEG, PNG ou WebP.");
   if ((meta.width ?? 0) < 300 || (meta.height ?? 0) < 300) throw new PhotoError("Photo trop petite pour être lisible.");
-  const base = sharp(input, { failOn: "error" }).rotate().rotate(turn);
+  // sharp 0.33 keeps only one rotate() per pipeline: stand the phone photo upright first, then turn it
+  let base = sharp(input, { failOn: "error" }).rotate();
+  if (turn) {
+    const { data, info } = await base.raw().toBuffer({ resolveWithObject: true });
+    base = sharp(data, { raw: { width: info.width, height: info.height, channels: info.channels } }).rotate(turn);
+  }
   const large = await base.clone().resize({ width: 2200, height: 2200, fit: "inside", withoutEnlargement: true }).webp({ quality: 82, effort: 4 }).toBuffer({ resolveWithObject: true });
   const small = await base.clone().resize({ width: 480, height: 480, fit: "inside" }).webp({ quality: 70, effort: 4 }).toBuffer();
   return { large: large.data, small, width: large.info.width, height: large.info.height, bytes: large.data.length + small.length };
