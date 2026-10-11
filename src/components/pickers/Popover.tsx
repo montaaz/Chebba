@@ -52,9 +52,24 @@ export default function Popover({ open, onClose, anchor, title, children, width 
   useLayoutEffect(() => {
     if (!open || phone) return;
     place();
-    // a second pass once the content has its real height (fonts, lists)
-    const id = requestAnimationFrame(place);
-    return () => cancelAnimationFrame(id);
+    // re-place whenever the content changes size: a map or a list loading in can make
+    // the panel much taller, and it must never run off the screen
+    const el = panel.current;
+    const inner = el?.firstElementChild ?? null;
+    const watch = new ResizeObserver(() => place());
+    if (el) watch.observe(el);
+    if (inner) watch.observe(inner);
+    let raf = 0;
+    const mo = new MutationObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(place);
+    });
+    if (el) mo.observe(el, { childList: true, subtree: true });
+    return () => {
+      watch.disconnect();
+      mo.disconnect();
+      cancelAnimationFrame(raf);
+    };
   }, [open, phone, place, children]);
 
   useEffect(() => {
