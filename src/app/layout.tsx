@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Manrope, Unbounded } from "next/font/google";
 import manifest from "@/lib/images.json";
 import { CAR, SITE } from "@/lib/site";
+import RegisterSW from "@/components/RegisterSW";
 import "./globals.css";
 
 const display = Unbounded({
@@ -23,6 +24,8 @@ const title = `${name} | Location et transfert en ${SITE.country} — ${CAR.make
 const description = `Location de voiture et transferts au kilomètre en ${SITE.country}. Calculez votre prix en ligne et réservez la ${CAR.make} ${CAR.model} ${CAR.trim} ${CAR.year} en trois étapes.`;
 
 export const metadata: Metadata = {
+  applicationName: "Chebba Auto Car",
+  appleWebApp: { capable: true, title: "Chebba", statusBarStyle: "black-translucent" },
   metadataBase: new URL(SITE.url),
   title: { default: title, template: `%s | ${name}` },
   description,
@@ -48,7 +51,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="fr" data-scroll-behavior="smooth" className={`${display.variable} ${body.variable}`}>
-      <body>{children}</body>
+      <body>
+        {children}
+        <RegisterSW />
+      </body>
     </html>
   );
 }
