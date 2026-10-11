@@ -5,6 +5,8 @@ import Icon from "@/components/Icon";
 import Lightbox from "@/components/Lightbox";
 import Picture from "@/components/Picture";
 import QuickBook from "@/components/QuickBook";
+import ShareSite from "@/components/ShareSite";
+import { qrSvg, SHARE_URL } from "@/lib/server/qr";
 import Showroom, { type ShowCar } from "@/components/Showroom";
 import { money } from "@/lib/format";
 import { getActiveCars, getCarPhotos, getSettings } from "@/lib/server/settings";
@@ -42,6 +44,7 @@ const PILL =
 
 export default async function Home() {
   const { settings, cars, photos } = await load();
+  const qr = await qrSvg();
   const currency = settings?.currency ?? "DT";
   const perDay = Math.min(...cars.filter((c) => c.for_rental && c.price_per_day > 0).map((c) => c.price_per_day));
   const perKm = settings?.price_per_km ?? 0;
@@ -186,6 +189,33 @@ export default async function Home() {
               </li>
             ))}
           </ul>
+        </section>
+
+        {/* ================= SHARE (QR code) ================= */}
+        <section className="wrap py-[clamp(3rem,7vw,5.5rem)]" aria-labelledby="share-title">
+          <div className="grid items-center gap-[clamp(1.5rem,5vw,4rem)] rounded-[28px] border border-line bg-linear-to-br from-night-2 to-night p-[clamp(1.2rem,4vw,3rem)] md:grid-cols-[auto_minmax(0,1fr)]" data-reveal>
+            <figure className="mx-auto w-[min(240px,64vw)] md:mx-0">
+              <div className="rounded-3xl bg-white p-3 shadow-[0_30px_60px_-30px_rgb(134_207_207/0.6)]">
+                {/* drawn on the server: no script, crisp at any size */}
+                <div className="aspect-square w-full [&>svg]:h-full [&>svg]:w-full" role="img" aria-label="QR code vers chebbautocar.com" dangerouslySetInnerHTML={{ __html: qr }} />
+              </div>
+              <figcaption className="mt-3 text-center font-display text-sm tracking-[0.12em] text-mist">chebbautocar.com</figcaption>
+            </figure>
+            <div>
+              <p className="eyebrow">Partagez</p>
+              <h2 id="share-title" className={TITLE}>
+                Scannez, réservez,
+                <br />
+                partagez.
+              </h2>
+              <p className="mt-4 max-w-[46ch] text-mist">
+                Ouvrez l&apos;appareil photo d&apos;un autre téléphone et visez le code : le site s&apos;ouvre directement. Envoyez-le à vos proches en un geste.
+              </p>
+              <div className="mt-6">
+                <ShareSite url={SHARE_URL} />
+              </div>
+            </div>
+          </div>
         </section>
 
         {/* ================= INTERIOR ================= */}
