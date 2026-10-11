@@ -482,6 +482,11 @@
     align-items: center;
     gap: clamp(1.5rem, 4vw, 4rem);
   }
+  /* grid children may never be wider than their track (the vehicle buttons scroll inside) */
+  .show__copy,
+  .frame {
+    min-width: 0;
+  }
   .show__captions {
     position: relative;
     display: grid;

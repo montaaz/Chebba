@@ -1,6 +1,6 @@
 import "server-only";
 import { one, query } from "./db";
-import type { Car, Place, Settings } from "../types";
+import type { Car, CarPhoto, Place, Settings } from "../types";
 
 /* Tariffs are read on almost every request and change rarely: keep them in
    memory for a few seconds. Admin saves clear the cache immediately. */
@@ -29,3 +29,14 @@ export const getActiveCars = () =>
 
 export const getActivePlaces = () =>
   cached("places", () => query<Place>("SELECT * FROM places WHERE is_active ORDER BY sort_order, id"));
+
+/* photo metadata only (never the image bytes), all active cars, in display order */
+export const getCarPhotos = () =>
+  cached("photos", () =>
+    query<CarPhoto>(
+      `SELECT p.id, p.car_id, p.position, p.width, p.height, p.version
+         FROM car_photos p JOIN cars c ON c.id = p.car_id
+        WHERE c.is_active
+        ORDER BY p.car_id, p.position, p.id`,
+    ),
+  );

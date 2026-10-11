@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/server/auth";
 import { reservationById } from "@/lib/server/booking";
-import { isUniqueViolation, query, transaction } from "@/lib/server/db";
+import { isUniqueViolation, one, query, transaction } from "@/lib/server/db";
 import { inArea } from "@/lib/server/geo";
 import { clientBody, clientTitle, mailStatus, notifyClient } from "@/lib/server/notify";
 import { clearConfigCache } from "@/lib/server/settings";
@@ -11,7 +11,7 @@ import { NEXT_STATUS } from "@/lib/format";
 import { clean, isEmail, isPhone, toAmount, toInt } from "@/lib/validate";
 import type { Status } from "@/lib/types";
 
-export type FormState = { error?: string; saved?: boolean };
+export type FormState = { error?: string; saved?: boolean; newId?: number };
 
 const ID_MAX = 2_147_483_647;
 
@@ -94,6 +94,7 @@ export async function saveCarAction(_: FormState, form: FormData): Promise<FormS
     form.get("for_rental") === "on", form.get("for_transfer") === "on", perDay, perKm,
     form.get("is_active") === "on", sort,
   ];
+  let newId: number | undefined;
   try {
     if (id) {
       await query(
@@ -105,12 +106,13 @@ export async function saveCarAction(_: FormState, form: FormData): Promise<FormS
       );
     } else {
       const slug = `${slugify(`${make} ${model} ${trim}`)}-${Date.now().toString(36).slice(-4)}`;
-      await query(
+      const created = await one<{ id: number }>(
         `INSERT INTO cars (make, model, trim_level, model_year, seats, luggage, transmission, fuel, image, units,
             for_rental, for_transfer, price_per_day, price_per_km, is_active, sort_order, slug)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17) RETURNING id`,
         [...values, slug],
       );
+      newId = created?.id;
     }
   } catch (err) {
     if (isUniqueViolation(err)) return { error: "Ce véhicule existe déjà." };
@@ -118,7 +120,7 @@ export async function saveCarAction(_: FormState, form: FormData): Promise<FormS
   }
   published();
   revalidatePath("/admin/vehicules");
-  return { saved: true };
+  return { saved: true, newId };
 }
 
 export async function savePlaceAction(_: FormState, form: FormData): Promise<FormState> {

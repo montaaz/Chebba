@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  experimental: {
+    // vehicle photos are shrunk in the browser to under 1.8 MB before upload (the server's Nginx allows 2 MB)
+    serverActions: { bodySizeLimit: "3mb" },
+  },
   // the floating "N" badge in development looked like part of the site
   devIndicators: false,
   async headers() {

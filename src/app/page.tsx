@@ -5,21 +5,24 @@ import Icon from "@/components/Icon";
 import Lightbox from "@/components/Lightbox";
 import Picture from "@/components/Picture";
 import QuickBook from "@/components/QuickBook";
+import Showroom, { type ShowCar } from "@/components/Showroom";
 import { money } from "@/lib/format";
-import { getActiveCars, getSettings } from "@/lib/server/settings";
+import { getActiveCars, getCarPhotos, getSettings } from "@/lib/server/settings";
+import { carName } from "@/lib/format";
+import { groupPhotos } from "@/lib/photos";
 import { ANGLES, CAR, FEATURES, INTERIOR, SITE, STATS, STEPS } from "@/lib/site";
-import type { Car, Settings } from "@/lib/types";
+import type { Car, CarPhoto, Settings } from "@/lib/types";
 
 /* Rebuilt in the background at most every 5 minutes; an admin save refreshes it at once. */
 export const revalidate = 300;
 
-async function load(): Promise<{ settings: Settings | null; cars: Car[] }> {
+async function load(): Promise<{ settings: Settings | null; cars: Car[]; photos: CarPhoto[] }> {
   try {
-    const [settings, cars] = await Promise.all([getSettings(), getActiveCars()]);
-    return { settings, cars };
+    const [settings, cars, photos] = await Promise.all([getSettings(), getActiveCars(), getCarPhotos()]);
+    return { settings, cars, photos };
   } catch {
     // the showcase must still render if the database is unreachable
-    return { settings: null, cars: [] };
+    return { settings: null, cars: [], photos: [] };
   }
 }
 
@@ -38,7 +41,7 @@ const PILL =
   "inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-4 py-2.5 text-[0.92rem] font-semibold transition-colors hover:border-aqua hover:bg-aqua/10";
 
 export default async function Home() {
-  const { settings, cars } = await load();
+  const { settings, cars, photos } = await load();
   const currency = settings?.currency ?? "DT";
   const perDay = Math.min(...cars.filter((c) => c.for_rental && c.price_per_day > 0).map((c) => c.price_per_day));
   const perKm = settings?.price_per_km ?? 0;
@@ -49,6 +52,27 @@ export default async function Home() {
   const whatsapp = settings?.contact_whatsapp ?? "";
   const email = settings?.contact_email ?? "";
   const tel = phone.replace(/[^\d+]/g, "");
+  // every active vehicle with photos; the built-in Ibiza angles only while it has none
+  const byCar = groupPhotos(photos);
+  const showCars: ShowCar[] = cars
+    .map((c) => {
+      const own = (byCar.get(c.id) ?? []).slice(0, 10);
+      const km = c.price_per_km ?? perKm;
+      const offer = [c.for_rental && c.price_per_day > 0 ? `dès ${money(c.price_per_day, currency)} / jour` : "", c.for_transfer && km > 0 ? `${money(km, currency)} / km` : ""].filter(Boolean).join(" · ");
+      const spec = `${c.seats} places · ${c.transmission === "automatic" ? "boîte automatique" : "boîte manuelle"} · ${c.luggage} bagage${c.luggage > 1 ? "s" : ""}${offer ? ` — ${offer}` : ""}.`;
+      const title = `${carName(c)} ${c.model_year}`;
+      const frames: ShowCar["frames"] = own.length
+        ? own.map((p, i) => ({ kind: "photo" as const, id: p.id, version: p.version, width: p.width, height: p.height, k: i === 0 ? "Vue d'ensemble" : `Photo ${i + 1}`, title, text: spec }))
+        : c.slug === "seat-ibiza-fr"
+          ? ANGLES.map((a) => ({ kind: "builtin" as const, img: a.img, k: a.k, title: a.title, text: a.text }))
+          : [];
+      return { id: c.id, slug: c.slug, name: carName(c), tag: `${c.model} ${c.trim_level}`.trim().toUpperCase(), frames };
+    })
+    .filter((c) => c.frames.length > 0);
+  // the database is unreachable: still show the Ibiza
+  if (!showCars.length)
+    showCars.push({ id: 0, slug: "seat-ibiza-fr", name: `${CAR.make} ${CAR.model} ${CAR.trim}`, tag: "IBIZA FR", frames: ANGLES.map((a) => ({ kind: "builtin" as const, img: a.img, k: a.k, title: a.title, text: a.text })) });
+
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Tunis" }).format(new Date());
 
   return (
@@ -139,77 +163,8 @@ export default async function Home() {
           </div>
         </div>
 
-        {/* ================= SHOWROOM (scroll frames) ================= */}
-        <section
-          className="show"
-          id="showroom"
-          data-show
-          style={{ "--frames": ANGLES.length } as React.CSSProperties}
-        >
-          <div className="show__stage">
-            <div className="show__copy">
-              <p className="eyebrow">Tour du propriétaire</p>
-              <div className="show__captions">
-                {ANGLES.map((a, i) => (
-                  <article className={`cap${i === 0 ? " on" : ""}`} data-cap key={a.img}>
-                    <p className="cap__k">
-                      <b>0{i + 1}</b> / 0{ANGLES.length} — {a.k}
-                    </p>
-                    <h2 className="cap__title">{a.title}</h2>
-                    <p className="cap__text">{a.text}</p>
-                  </article>
-                ))}
-              </div>
-              <div className="show__dots" role="tablist" aria-label="Angles de vue">
-                {ANGLES.map((a, i) => (
-                  <button
-                    key={a.img}
-                    type="button"
-                    role="tab"
-                    data-dot={i}
-                    aria-label={a.k}
-                    aria-selected={i === 0}
-                  />
-                ))}
-              </div>
-            </div>
-
-            <div className="frame">
-              <div className="frame__view">
-                {ANGLES.map((a, i) => (
-                  <div
-                    className="frame__layer"
-                    data-layer
-                    data-zoom={a.img}
-                    data-zoom-caption={`${a.k} — ${a.title}`}
-                    key={a.img}
-                    style={{ clipPath: i === 0 ? "none" : "inset(0 0 0 100%)" }}
-                  >
-                    <Picture
-                      name={a.img}
-                      alt={`SEAT Ibiza FR — ${a.k.toLowerCase()}`}
-                      sizes="(max-width: 900px) 92vw, 58vw"
-                    />
-                  </div>
-                ))}
-                <span className="frame__shade" aria-hidden="true" />
-              </div>
-              <span className="frame__corner frame__corner--tl" aria-hidden="true" />
-              <span className="frame__corner frame__corner--tr" aria-hidden="true" />
-              <span className="frame__corner frame__corner--bl" aria-hidden="true" />
-              <span className="frame__corner frame__corner--br" aria-hidden="true" />
-              <div className="frame__meta" aria-hidden="true">
-                <span>
-                  <i className="frame__rec" /> IBIZA FR
-                </span>
-                <span className="frame__bar">
-                  <b data-bar />
-                </span>
-                <span data-count-frame>01</span>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ================= SHOWROOM (vehicles and their photos, from the admin) ================= */}
+        <Showroom cars={showCars} />
 
         {/* ================= STATS ================= */}
         <section className="wrap grid items-end gap-[clamp(2rem,5vw,5rem)] border-y border-line bg-linear-to-br from-deep to-[#03363a] py-[clamp(3.5rem,9vw,7rem)] lg:grid-cols-[1.25fr_1fr]">

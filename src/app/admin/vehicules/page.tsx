@@ -1,26 +1,32 @@
 import type { Metadata } from "next";
 import PageHeader from "@/components/app/PageHeader";
 import CarForm from "@/components/admin/CarForm";
+import PhotoManager from "@/components/admin/PhotoManager";
 import Icon from "@/components/Icon";
 import Picture from "@/components/Picture";
 import { PANEL } from "@/components/ui";
 import { carName, money } from "@/lib/format";
 import manifest from "@/lib/images.json";
 import { one, query } from "@/lib/server/db";
-import type { Car, Settings } from "@/lib/types";
+import { groupPhotos, photoUrl } from "@/lib/photos";
+import type { Car, CarPhoto, Settings } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Véhicules" };
 
 type Row = Car & { active_bookings: number };
 
-export default async function Page() {
-  const [cars, settings] = await Promise.all([
+export default async function Page({ searchParams }: { searchParams: Promise<{ ouvert?: string }> }) {
+  const opened = Number((await searchParams).ouvert);
+  const [cars, settings, photoRows] = await Promise.all([
     query<Row>(`
       SELECT c.*, (SELECT count(*)::int FROM reservations r
                     WHERE r.car_id = c.id AND r.status IN ('pending', 'confirmed', 'ongoing')) AS active_bookings
         FROM cars c ORDER BY c.sort_order, c.id`),
     one<Settings>("SELECT * FROM settings WHERE id = 1"),
+    // all cars, hidden ones included; never the image bytes
+    query<CarPhoto>("SELECT id, car_id, position, width, height, version FROM car_photos ORDER BY car_id, position, id"),
   ]);
+  const photos = groupPhotos(photoRows);
   const s = settings!;
   const images = Object.keys(manifest);
 
@@ -36,11 +42,14 @@ export default async function Page() {
         {cars.map((c) => {
           const perKm = c.price_per_km ?? s.price_per_km;
           const warn = (c.for_rental && !c.price_per_day) || (c.for_transfer && !perKm);
+          const own = photos.get(c.id) ?? [];
           return (
-            <details key={c.id} className="group overflow-hidden rounded-3xl border border-line bg-night-2/70">
+            <details key={c.id} id={`car-${c.id}`} open={c.id === opened} className="group scroll-mt-24 overflow-hidden rounded-3xl border border-line bg-night-2/70">
               <summary className="grid cursor-pointer list-none grid-cols-[auto_minmax(0,1fr)] items-center gap-4 p-4 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:p-5 [&::-webkit-details-marker]:hidden">
                 <span className="grid h-20 w-28 place-items-center overflow-hidden rounded-2xl bg-linear-to-br from-deep to-night sm:h-24 sm:w-36">
-                  {c.image && c.image in manifest ? (
+                  {own[0] ? (
+                    <img src={photoUrl(own[0], "small")} alt="" className="h-full w-full object-cover" />
+                  ) : c.image && c.image in manifest ? (
                     <Picture name={c.image} alt="" sizes="144px" className="w-full object-contain" />
                   ) : (
                     <span className="text-fog">
@@ -58,6 +67,9 @@ export default async function Page() {
                     {c.for_transfer && <span className="rounded-full bg-white/5 px-2.5 py-1 text-mist">Transfert</span>}
                     {c.for_rental && <span className="rounded-full bg-white/5 px-2.5 py-1 text-mist">Location</span>}
                     {warn && <span className="rounded-full bg-[#e8b86d]/12 px-2.5 py-1 text-[#f3d6a4]">⚠ Tarif manquant</span>}
+                    <span className={`rounded-full px-2.5 py-1 ${own.length ? "bg-white/5 text-mist" : "bg-[#e8b86d]/12 text-[#f3d6a4]"}`}>
+                      {own.length ? `${own.length} photo${own.length > 1 ? "s" : ""}` : "⚠ Aucune photo"}
+                    </span>
                   </span>
                 </span>
                 <span className="col-span-2 grid grid-cols-3 gap-2 text-center sm:col-span-1 sm:flex sm:gap-5 sm:text-right">
@@ -82,6 +94,9 @@ export default async function Page() {
                 </span>
               </summary>
               <div className="border-t border-hair p-4 sm:p-6">
+                <div className="mb-6">
+                  <PhotoManager carId={c.id} carName={carName(c)} photos={own} />
+                </div>
                 <CarForm car={c} currency={s.currency} kmRate={s.price_per_km} images={images} />
               </div>
             </details>
@@ -92,6 +107,7 @@ export default async function Page() {
           <h2 className="mb-5 flex items-center gap-2 text-base">
             <Icon name="plus" size={19} /> Ajouter un véhicule
           </h2>
+          <p className="-mt-2 mb-4 text-sm text-mist">Après l&apos;ajout, la fiche du véhicule s&apos;ouvre pour ajouter ses photos (10 maximum).</p>
           <CarForm currency={s.currency} kmRate={s.price_per_km} images={images} />
         </section>
       </div>

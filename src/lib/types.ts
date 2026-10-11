@@ -103,3 +103,5 @@ export type Reservation = {
   created_at: Date;
   car_name: string;
 };
+
+export type CarPhoto = { id: number; car_id: number; position: number; width: number; height: number; version: number };

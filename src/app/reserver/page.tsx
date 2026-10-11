@@ -4,7 +4,8 @@ import Wizard from "@/components/booking/Wizard";
 import { getUser } from "@/lib/server/auth";
 import { inArea } from "@/lib/server/geo";
 import { clean } from "@/lib/validate";
-import { getActiveCars, getActivePlaces, getSettings } from "@/lib/server/settings";
+import { getActiveCars, getActivePlaces, getCarPhotos, getSettings } from "@/lib/server/settings";
+import Lightbox from "@/components/Lightbox";
 
 export const metadata: Metadata = {
   title: "Réserver — transfert ou location",
@@ -16,7 +17,9 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 export default async function Page({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const q = await searchParams;
-  const [user, cars, places, settings] = await Promise.all([getUser(), getActiveCars(), getActivePlaces(), getSettings()]);
+  const [user, cars, places, settings, photos] = await Promise.all([getUser(), getActiveCars(), getActivePlaces(), getSettings(), getCarPhotos()]);
+  // "Réserver ce véhicule" from the showroom arrives with ?car=<slug>
+  const picked = typeof q.car === "string" ? cars.find((c) => c.slug === q.car)?.id ?? null : null;
   const day = (v: unknown) => (typeof v === "string" && DATE.test(v) ? `${v}T10:00` : "");
   // places chosen in the home-page bar arrive as frequent-place ids
   // "lat,lng,label"; anything outside Tunisia or malformed is simply ignored
@@ -40,9 +43,12 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           currency={settings.currency}
           minLeadHours={settings.min_lead_hours}
           whatsapp={settings.contact_whatsapp}
-          initial={{ kind: q.mode === "location" ? "rental" : "transfer", startAt: day(q.from), endAt: day(q.to), pickup: place(q.a), dropoff: place(q.b) }}
+          initial={{ kind: q.mode === "location" ? "rental" : "transfer", startAt: day(q.from), endAt: day(q.to), pickup: place(q.a), dropoff: place(q.b), carId: picked }}
+          photos={photos}
+          globalKm={settings.price_per_km}
         />
       </main>
+      <Lightbox />
     </>
   );
 }

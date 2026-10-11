@@ -4,23 +4,34 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import manifest from "@/lib/images.json";
 import Icon from "./Icon";
 
-/* Full-screen photo viewer for every element marked `data-zoom="<image name>"`.
+/* Full-screen photo viewer for every element marked `data-zoom`:
+   data-zoom="<built-in image name>"  or  data-zoom="photo" data-zoom-src="<url of the large file>"
+   data-zoom-srcset / data-zoom-ratio describe a stored vehicle photo; data-zoom-group limits
+   swiping to the photos of the same group (one vehicle). Elements added later are picked up too.
    Phone: pinch to zoom, double-tap, drag to pan, swipe sideways to browse, swipe down to close.
    Desktop: click, double-click, mouse wheel, drag, arrow keys, +/- and Escape.
    The page markup stays server-rendered; this only enhances it. */
 
-type Item = { name: string; caption: string; alt: string; el: HTMLElement };
+type Info = { avif?: string; webp: string; src: string; ratio: number };
+type Item = { key: string; info: Info; caption: string; alt: string; el: HTMLElement };
 type Name = keyof typeof manifest;
 
 const MAX = 5;
 const DOUBLE_TAP_MS = 280;
 const clamp = (v: number, a: number, b: number) => Math.min(b, Math.max(a, v));
 
-const srcs = (name: string) => {
+const builtin = (name: string): Info | null => {
   const m = manifest[name as Name];
   if (!m) return null;
   const set = (ext: string) => m.widths.map((w) => `/img/${name}-${w}.${ext}?v=${m.v} ${w}w`).join(", ");
   return { avif: set("avif"), webp: set("webp"), src: `/img/${name}-${m.widths[m.widths.length - 1]}.webp?v=${m.v}`, ratio: m.width / m.height };
+};
+
+/* what to show for one marked element, or null if it describes nothing displayable */
+const infoOf = (el: HTMLElement): Info | null => {
+  const d = el.dataset;
+  if (d.zoomSrc) return { src: d.zoomSrc, webp: d.zoomSrcset || d.zoomSrc, ratio: Number(d.zoomRatio) || 1.5 };
+  return d.zoom ? builtin(d.zoom) : null;
 };
 
 export default function Lightbox() {
@@ -55,7 +66,7 @@ export default function Lightbox() {
   /* ---------- geometry ---------- */
   const fitted = useCallback(() => {
     const box = stage.current?.getBoundingClientRect();
-    const info = item ? srcs(item.name) : null;
+    const info = item?.info ?? null;
     if (!box || !info) return { W: 1, H: 1, w: 1, h: 1, left: 0, top: 0 };
     const w = Math.min(box.width, box.height * info.ratio);
     return { W: box.width, H: box.height, w, h: w / info.ratio, left: box.left, top: box.top };
@@ -135,43 +146,57 @@ export default function Lightbox() {
     [items.length],
   );
 
-  /* collect the zoomable elements and make them keyboard- and screen-reader friendly */
+  /* zoomable elements are found when tapped, so content rendered later (booking steps,
+     a different vehicle) works too; a group keeps swiping within one vehicle's photos */
   useEffect(() => {
-    const els = Array.from(document.querySelectorAll<HTMLElement>("[data-zoom]"));
-    const list = els
-      .filter((el) => srcs(el.dataset.zoom!))
-      .map((el) => ({
-        el,
-        name: el.dataset.zoom!,
-        caption: el.dataset.zoomCaption ?? "",
-        alt: el.querySelector("img")?.alt ?? "",
-      }));
-    setItems(list);
-    for (const it of list) {
-      it.el.tabIndex = 0;
-      it.el.setAttribute("role", "button");
-      it.el.setAttribute("aria-label", `Agrandir la photo : ${it.caption || it.alt}`);
-    }
-    const pick = (target: EventTarget | null) => {
+    const decorate = (root: ParentNode) => {
+      for (const el of Array.from(root.querySelectorAll<HTMLElement>("[data-zoom]"))) {
+        if (el.dataset.zoomReady) continue;
+        el.dataset.zoomReady = "1";
+        if (!el.matches("button, a")) {
+          el.tabIndex = 0;
+          el.setAttribute("role", "button");
+        }
+        const label = el.dataset.zoomCaption || el.querySelector("img")?.alt || "";
+        if (!el.getAttribute("aria-label")) el.setAttribute("aria-label", `Agrandir la photo : ${label}`);
+      }
+    };
+    decorate(document);
+    const watch = new MutationObserver(() => decorate(document));
+    watch.observe(document.body, { childList: true, subtree: true });
+
+    const collect = (el: HTMLElement) => {
+      const group = el.dataset.zoomGroup ?? "";
+      const list: Item[] = [];
+      for (const x of Array.from(document.querySelectorAll<HTMLElement>("[data-zoom]"))) {
+        if ((x.dataset.zoomGroup ?? "") !== group) continue;
+        const info = infoOf(x);
+        if (!info) continue;
+        list.push({ key: info.src, info, el: x, caption: x.dataset.zoomCaption ?? "", alt: x.querySelector("img")?.alt ?? x.dataset.zoomCaption ?? "" });
+      }
+      // the same photo can appear twice on a page (thumbnail strip + main view): keep one
+      const seenKeys = new Set<string>();
+      return list.filter((it) => (seenKeys.has(it.key) ? false : (seenKeys.add(it.key), true)));
+    };
+    const open = (target: EventTarget | null, e: Event) => {
       const el = (target as HTMLElement | null)?.closest?.<HTMLElement>("[data-zoom]");
-      return el ? list.findIndex((it) => it.el === el) : -1;
-    };
-    const onClick = (e: MouseEvent) => {
-      const i = pick(e.target);
+      if (!el) return;
+      const list = collect(el);
+      const key = infoOf(el)?.src;
+      const i = list.findIndex((it) => it.key === key);
       if (i < 0) return;
       e.preventDefault();
-      show(i, list[i].el);
+      setItems(list);
+      show(i, el);
     };
+    const onClick = (e: MouseEvent) => open(e.target, e);
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Enter" && e.key !== " ") return;
-      const i = pick(e.target);
-      if (i < 0) return;
-      e.preventDefault();
-      show(i, list[i].el);
+      if (e.key === "Enter" || e.key === " ") open(e.target, e);
     };
     document.addEventListener("click", onClick);
     document.addEventListener("keydown", onKey);
     return () => {
+      watch.disconnect();
       document.removeEventListener("click", onClick);
       document.removeEventListener("keydown", onKey);
     };
@@ -408,14 +433,14 @@ export default function Lightbox() {
       >
         <div ref={track} className="flex h-full will-change-transform">
           {items.map((it, i) => {
-            const info = srcs(it.name)!;
+            const info = it.info;
             const near = Math.abs(i - index) <= 1;
             return (
-              <div key={it.name} className="relative grid h-full w-full shrink-0 place-items-center" aria-hidden={i !== index}>
+              <div key={it.key} className="relative grid h-full w-full shrink-0 place-items-center" aria-hidden={i !== index}>
                 {near && (
                   <div ref={i === index ? layer : undefined} className="grid h-full w-full place-items-center will-change-transform">
                     <picture className="contents">
-                      <source type="image/avif" srcSet={info.avif} sizes="100vw" />
+                      {info.avif && <source type="image/avif" srcSet={info.avif} sizes="100vw" />}
                       <img
                         src={info.src}
                         srcSet={info.webp}

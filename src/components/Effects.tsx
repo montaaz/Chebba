@@ -57,62 +57,6 @@ export default function Effects() {
       off.push(() => hero.removeEventListener("pointermove", move));
     }
 
-    /* ---- showroom ---- */
-    const show = $("[data-show]");
-    const layers = show ? $$("[data-layer]", show) : [];
-    const caps = show ? $$("[data-cap]", show) : [];
-    const dots = show ? $$<HTMLButtonElement>("[data-dot]", show) : [];
-    const bar = show ? $("[data-bar]", show) : null;
-    const counter = show ? $("[data-count-frame]", show) : null;
-    const last = layers.length - 1;
-    let active = 0;
-
-    // frames are lazy: pull them in a little before the section arrives
-    if (show) {
-      const warm = new IntersectionObserver(
-        ([e]) => {
-          if (!e.isIntersecting) return;
-          $$<HTMLImageElement>("img", show).forEach((img) => (img.loading = "eager"));
-          warm.disconnect();
-        },
-        { rootMargin: "120% 0px" },
-      );
-      warm.observe(show);
-      off.push(() => warm.disconnect());
-    }
-
-    const span = () => (show ? show.offsetHeight - window.innerHeight : 1);
-    const drawShow = () => {
-      if (!show || last < 1) return;
-      const p = clamp(-show.getBoundingClientRect().top / span());
-      const f = p * last;
-      layers.forEach((layer, i) => {
-        const d = f - i;
-        // each new frame wipes in from the right over the previous one
-        const cut = i === 0 ? 0 : (1 - clamp((d + 0.66) / 0.4)) * 100;
-        layer.style.clipPath = `inset(0 0 0 ${cut.toFixed(2)}%)`;
-        const pic = layer.firstElementChild as HTMLElement | null;
-        if (pic && !calm) pic.style.transform = `scale(${(1.06 + clamp(d, -1, 1) * 0.05).toFixed(4)})`;
-      });
-      if (bar) bar.style.transform = `scaleX(${p.toFixed(4)})`;
-      const now = Math.round(f + 0.04);
-      if (now !== active) {
-        active = clamp(now, 0, last);
-        caps.forEach((c, i) => c.classList.toggle("on", i === active));
-        dots.forEach((d, i) => d.setAttribute("aria-selected", String(i === active)));
-        if (counter) counter.textContent = `0${active + 1}`;
-      }
-    };
-    dots.forEach((dot, i) => {
-      const go = () => {
-        if (!show) return;
-        const top = show.getBoundingClientRect().top + window.scrollY + (i / last) * span();
-        window.scrollTo({ top, behavior: calm ? "auto" : "smooth" });
-      };
-      dot.addEventListener("click", go);
-      off.push(() => dot.removeEventListener("click", go));
-    });
-
     /* ---- one rAF-throttled scroll loop ---- */
     const nav = $("[data-nav]");
     let queued = false;
@@ -122,7 +66,6 @@ export default function Effects() {
       const vh = window.innerHeight;
       nav?.classList.toggle("solid", y > 24);
       if (hero && !calm && y < vh * 1.2) hero.style.setProperty("--sp", clamp(y / vh).toFixed(3));
-      drawShow();
     };
     const onScroll = () => {
       if (queued) return;

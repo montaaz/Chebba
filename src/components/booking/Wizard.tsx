@@ -9,7 +9,8 @@ import Icon from "@/components/Icon";
 import Picture from "@/components/Picture";
 import { FIELD, INPUT, LABEL, Notice, PANEL } from "@/components/ui";
 import { carName, duration, money } from "@/lib/format";
-import type { Car, Kind, Place, Point, Price, Route, User } from "@/lib/types";
+import type { Car, CarPhoto, Kind, Place, Point, Price, Route, User } from "@/lib/types";
+import { groupPhotos, photoSrcSet, photoUrl } from "@/lib/photos";
 import { messageToAgency, waLink } from "@/lib/whatsapp";
 import DateTimeField from "../pickers/DateTimeField";
 import PlaceInput from "./PlaceInput";
@@ -30,16 +31,20 @@ type Props = {
   currency: string;
   minLeadHours: number;
   whatsapp: string;
-  initial: { kind: Kind; startAt: string; endAt: string; pickup?: Point | null; dropoff?: Point | null };
+  initial: { kind: Kind; startAt: string; endAt: string; pickup?: Point | null; dropoff?: Point | null; carId?: number | null };
+  photos: CarPhoto[];
+  globalKm: number;
 };
 
-const STEPS = ["Trajet", "Véhicule", "Coordonnées"];
+/* the vehicle comes first: the client sees the cars and their photos before anything else */
+const STEPS = ["Véhicule", "Trajet", "Coordonnées"];
+const VEHICLE = 0, TRIP = 1, CONTACT = 2;
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const localInput = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-export default function Wizard({ cars, places, user, currency, minLeadHours, whatsapp, initial }: Props) {
+export default function Wizard({ cars, places, user, currency, minLeadHours, whatsapp, initial, photos, globalKm }: Props) {
   const [kind, setKind] = useState<Kind>(initial.kind);
   const [step, setStep] = useState(0);
   const [pickup, setPickup] = useState<Point | null>(initial.pickup ?? null);
@@ -57,7 +62,8 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
   });
   const [endAt, setEndAt] = useState(initial.endAt);
   const [passengers, setPassengers] = useState(1);
-  const [carId, setCarId] = useState<number | null>(null);
+  const [carId, setCarId] = useState<number | null>(initial.carId ?? null);
+  const photosOf = useMemo(() => groupPhotos(photos), [photos]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
   // Continue was tapped while the price was still on its way: carry on as soon as it lands
@@ -124,8 +130,8 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
     [offers],
   );
   const chosen = offerOf(carId)?.available ? offerOf(carId) : undefined;
-  const shown = chosen ?? best;
-  const car = cars.find((c) => c.id === (chosen?.carId ?? null));
+  const shown = carId ? chosen : best;
+  const car = cars.find((c) => c.id === carId);
   // a price exists but every vehicle is taken at that time: say so at once, not two steps later
   const noService = Boolean(quote) && offers.length === 0;
   const soldOut = noService || (offers.length > 0 && !best);
@@ -133,12 +139,18 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
     ? `La réservation en ligne n'est pas encore ouverte pour ${isTransfer ? "les transferts" : "la location"}. Contactez-nous pour un devis.`
     : "Aucun véhicule n'est disponible à cette date. Essayez un autre horaire.";
 
-  // keep a valid car selected as offers change
+  // cars offered for the current service: priced for it (a missing tariff is never a free booking)
+  const eligibleCars = useMemo(
+    () => cars.filter((c) => (isTransfer ? c.for_transfer && (c.price_per_km ?? globalKm) > 0 : c.for_rental && c.price_per_day > 0)),
+    [cars, isTransfer, globalKm],
+  );
+  // a car chosen for the other service may not be offered for this one
   useEffect(() => {
-    if (!offers.length) return;
-    if (!offerOf(carId)?.available) setCarId(best?.carId ?? null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offers]);
+    if (carId && !eligibleCars.some((c) => c.id === carId)) setCarId(null);
+    else if (!carId && eligibleCars.length === 1) setCarId(eligibleCars[0].id);
+  }, [eligibleCars, carId]);
+  const carOffer = offerOf(carId);
+  const carUnavailable = Boolean(quote) && Boolean(carId) && (!carOffer || !carOffer.available);
 
   const onMapPick = useCallback(
     async (lat: number, lng: number) => {
@@ -171,7 +183,11 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
   };
 
   const next = () => {
-    if (step === 0) {
+    if (step === VEHICLE) {
+      if (!carId) return setError("Choisissez un véhicule.");
+      return go(TRIP);
+    }
+    if (step === TRIP) {
       if (!pickup) return setError("Choisissez votre lieu de départ.");
       if (isTransfer && !dropoff) return setError("Choisissez votre destination.");
       if (!startAt) return setError("Indiquez la date et l'heure de départ.");
@@ -181,9 +197,9 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
         setWaiting(true);
         return;
       }
-      if (soldOut) return setError(SOLD_OUT);
+      if (noService) return setError(SOLD_OUT);
+      if (carUnavailable) return setError("Ce véhicule n'est pas disponible pour ce trajet ou à ces dates. Changez l'horaire ou le véhicule.");
     }
-    if (step === 1 && !chosen) return setError("Choisissez un véhicule disponible.");
     go(step + 1);
   };
 
@@ -304,8 +320,19 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
         </ol>
 
         <form className={`${PANEL} order-4 flex flex-col gap-4 lg:order-none`} onSubmit={submit} noValidate>
-          {step === 0 && (
+          {step === TRIP && (
             <>
+              {car ? (
+                <div className="-mt-1 flex items-center justify-between gap-3 rounded-2xl bg-white/[0.04] px-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">
+                    <span className="text-fog">Véhicule : </span>
+                    <b>{carName(car)}</b>
+                  </span>
+                  <button type="button" onClick={() => go(VEHICLE)} className="min-h-11 shrink-0 cursor-pointer px-1 text-aqua hover:underline">
+                    Changer
+                  </button>
+                </div>
+              ) : null}
               <h1 className="text-[clamp(1.3rem,3vw,1.8rem)]">
                 {isTransfer ? "Où allez-vous ?" : "Quand et où prenez-vous la voiture ?"}
               </h1>
@@ -393,56 +420,90 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
             </>
           )}
 
-          {step === 1 && (
+          {step === VEHICLE && (
             <>
               <h1 className="text-[clamp(1.3rem,3vw,1.8rem)]">Choisissez votre véhicule</h1>
               <ul className="flex flex-col gap-3">
-                {offers.map((o) => {
-                  const c = cars.find((x) => x.id === o.carId);
-                  if (!c) return null;
-                  const on = carId === c.id && o.available;
+                {eligibleCars.map((c) => {
+                  const own = photosOf.get(c.id) ?? [];
+                  const cover = own[0];
+                  const on = carId === c.id;
+                  const o = offerOf(c.id);
+                  const rate = isTransfer ? `${money(c.price_per_km ?? globalKm, currency)} / km` : `${money(c.price_per_day, currency)} / jour`;
+                  const group = `car-${c.id}`;
+                  const zoom = (p: CarPhoto, i: number) => ({
+                    "data-zoom": "photo",
+                    "data-zoom-src": photoUrl(p, "large"),
+                    "data-zoom-srcset": photoSrcSet(p),
+                    "data-zoom-ratio": (p.width / p.height).toFixed(4),
+                    "data-zoom-group": group,
+                    "data-zoom-caption": `${carName(c)} — photo ${i + 1} / ${own.length}`,
+                  });
                   return (
-                    <li key={c.id}>
-                      {/* photo + name on the first row, price on its own row below: nothing competes for width on a 320px screen */}
+                    <li key={c.id} className={`overflow-hidden rounded-2xl border transition-colors ${on ? "border-aqua bg-aqua/10" : "border-hair bg-white/[0.03]"}`}>
                       <button
                         type="button"
-                        disabled={!o.available}
                         aria-pressed={on}
-                        className={`grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 rounded-2xl border p-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-4 ${on ? "border-aqua bg-aqua/10" : "border-hair bg-white/[0.03] hover:border-line"}`}
-                        onClick={() => setCarId(c.id)}
+                        onClick={() => {
+                          setCarId(c.id);
+                          setError("");
+                        }}
+                        className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 p-3 text-left sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-4"
                       >
-                        <span className="grid h-16 w-24 place-items-center overflow-hidden rounded-xl bg-linear-to-br from-deep to-night sm:h-20 sm:w-32">
-                          {c.image ? (
-                            <Picture name={c.image} alt="" sizes="128px" className="w-full object-contain" />
+                        <span className="grid h-20 w-28 place-items-center overflow-hidden rounded-xl bg-linear-to-br from-deep to-night sm:h-24 sm:w-36">
+                          {cover ? (
+                            <img src={photoUrl(cover, "small")} alt="" width={cover.width} height={cover.height} className="h-full w-full object-cover" loading="lazy" />
+                          ) : c.image ? (
+                            <Picture name={c.image} alt="" sizes="144px" className="w-full object-contain" />
                           ) : (
                             <span className="font-display text-xs text-fog">{c.make}</span>
                           )}
                         </span>
                         <span className="min-w-0">
-                          <span className="block font-display text-base leading-tight font-medium">{carName(c)}</span>
-                          <span className="mt-1 block text-xs text-mist">
-                            {c.seats} places · {c.luggage} bagages ·{" "}
-                            {c.transmission === "automatic" ? "Automatique" : "Manuelle"}
+                          <span className="flex items-center gap-2">
+                            <span className={`grid size-5 shrink-0 place-items-center rounded-full border ${on ? "border-aqua bg-aqua text-[#02211f]" : "border-line"}`} aria-hidden="true">
+                              {on && <Icon name="check" size={12} />}
+                            </span>
+                            <span className="block font-display text-base leading-tight font-medium">{carName(c)}</span>
                           </span>
-                          {!o.available && <span className="mt-1 block text-xs text-[#f5b39a]">Indisponible à ces dates</span>}
+                          <span className="mt-1 block text-xs text-mist">
+                            {c.model_year} · {c.seats} places · {c.luggage} bagages · {c.transmission === "automatic" ? "Automatique" : "Manuelle"}
+                          </span>
+                          {o && !o.available && <span className="mt-1 block text-xs text-[#f5b39a]">Indisponible pour ce trajet / ces dates</span>}
                         </span>
                         <span className="flex items-baseline justify-between gap-3 max-sm:col-span-2 max-sm:border-t max-sm:border-hair max-sm:pt-3 sm:block sm:text-right">
-                          <span className="text-xs text-fog sm:hidden">
-                            {money(o.price.unitPrice, currency)} / {isTransfer ? "km" : "jour"}
-                          </span>
-                          <span className="block font-display text-lg font-extrabold whitespace-nowrap text-sand">
-                            {money(o.price.total, currency)}
-                          </span>
-                          <span className="block text-xs text-fog max-sm:hidden">
-                            {money(o.price.unitPrice, currency)} / {isTransfer ? "km" : "jour"}
-                          </span>
+                          <span className="text-xs text-fog sm:hidden">{o?.available ? rate : "Tarif"}</span>
+                          <span className="block font-display text-lg font-extrabold whitespace-nowrap text-sand">{o?.available ? money(o.price.total, currency) : rate}</span>
+                          {o?.available && <span className="block text-xs text-fog max-sm:hidden">{rate}</span>}
                         </span>
                       </button>
+                      {own.length > 0 && (
+                        <div className="flex gap-1.5 overflow-x-auto px-3 pb-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                          {own.map((p, i) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              {...zoom(p, i)}
+                              aria-label={`Voir la photo ${i + 1} de ${carName(c)}`}
+                              className="relative h-14 w-20 shrink-0 cursor-zoom-in overflow-hidden rounded-lg border border-hair hover:border-aqua"
+                            >
+                              <img src={photoUrl(p, "small")} alt="" className="h-full w-full object-cover" loading="lazy" />
+                              {i === 0 && (
+                                <span className="absolute inset-x-0 bottom-0 bg-black/60 py-0.5 text-center text-[0.6rem] font-semibold">
+                                  {own.length} photo{own.length > 1 ? "s" : ""}
+                                </span>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </li>
                   );
                 })}
               </ul>
-              {offers.length === 0 && <Notice tone="error">Aucun véhicule n&apos;est proposé pour ce type de réservation.</Notice>}
+              {eligibleCars.length === 0 && (
+                <Notice tone="error">La réservation en ligne n&apos;est pas encore ouverte pour {isTransfer ? "les transferts" : "la location"}. Contactez-nous pour un devis.</Notice>
+              )}
               <label className={`${FIELD} max-w-44`}>
                 <span className={LABEL}>Passagers</span>
                 <input
@@ -458,7 +519,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
             </>
           )}
 
-          {step === 2 && (
+          {step === CONTACT && (
             <>
               <h1 className="text-[clamp(1.3rem,3vw,1.8rem)]">
                 {user ? "Confirmez vos coordonnées" : "Dernière étape : vos coordonnées"}
@@ -585,7 +646,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
       <aside className="contents lg:sticky lg:top-24 lg:flex lg:flex-col lg:gap-4">
         {/* on phones the map leads step 1, then steps aside so the form has the screen */}
         <div
-          className={`relative order-2 h-[clamp(170px,30svh,280px)] overflow-hidden rounded-3xl border border-line lg:order-none lg:h-[clamp(240px,42vh,440px)] ${step > 0 ? "max-lg:hidden" : ""}`}
+          className={`relative order-2 h-[clamp(170px,30svh,280px)] overflow-hidden rounded-3xl border border-line lg:order-none lg:h-[clamp(240px,42vh,440px)] ${step !== TRIP ? "max-lg:hidden" : ""}`}
         >
           <RouteMap pickup={pickup} dropoff={isTransfer ? dropoff : null} polyline={isTransfer ? (quote?.route?.polyline ?? "") : ""} onPick={onMapPick} />
         </div>

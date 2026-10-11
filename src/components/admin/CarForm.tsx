@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
+import { useRouter } from "next/navigation";
+import { useActionState, useEffect } from "react";
 import { saveCarAction, type FormState } from "@/app/actions/admin";
 import Select from "@/components/pickers/Select";
 import { CHECK, FIELD, INPUT, LABEL, Notice } from "@/components/ui";
@@ -10,6 +11,11 @@ type Props = { car?: Car; currency: string; kmRate: number; images: string[] };
 
 export default function CarForm({ car, currency, kmRate, images }: Props) {
   const [state, action, pending] = useActionState<FormState, FormData>(saveCarAction, {});
+  const router = useRouter();
+  // a new vehicle: open its card so the photos can be added straight away
+  useEffect(() => {
+    if (state.newId) router.push(`/admin/vehicules?ouvert=${state.newId}#car-${state.newId}`);
+  }, [state.newId, router]);
   const text = (name: keyof Car, label: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
     <label className={`${FIELD} ${["make", "model", "price_per_day", "price_per_km"].includes(name) ? "max-sm:col-span-2" : ""}`}>
       <span className={LABEL}>{label}</span>
@@ -66,10 +72,8 @@ export default function CarForm({ car, currency, kmRate, images }: Props) {
             ]}
           />
         </label>
-        <label className={`${FIELD} max-sm:col-span-2`}>
-          <span className={LABEL}>Photo</span>
-          <Select label="Photo" name="image" defaultValue={car?.image ?? ""} className={INPUT} options={[{ value: "", label: "Aucune" }, ...images.map((i) => ({ value: i, label: i }))]} />
-        </label>
+        {/* the vehicle's pictures are managed in "Photos" above; this keeps any built-in image as a fallback */}
+        <input type="hidden" name="image" value={car?.image ?? ""} />
       </div>
       <div className="flex flex-wrap gap-x-6">
         {check("is_active", "Visible sur le site")}
@@ -77,7 +81,7 @@ export default function CarForm({ car, currency, kmRate, images }: Props) {
         {check("for_rental", "Proposé en location")}
       </div>
       {state.error && <Notice tone="error">{state.error}</Notice>}
-      {state.saved && <Notice tone="ok">Véhicule enregistré.</Notice>}
+      {state.saved && <Notice tone="ok">{state.newId ? "Véhicule ajouté : ajoutez maintenant ses photos." : "Véhicule enregistré."}</Notice>}
       <button className="btn btn--ghost self-start" type="submit" disabled={pending}>
         {pending ? "Enregistrement…" : car ? "Enregistrer" : "Ajouter le véhicule"}
       </button>

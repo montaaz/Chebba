@@ -57,5 +57,35 @@ if (!ADMIN_EMAIL || !ADMIN_PASSWORD) {
   console.log(rowCount ? `Admin account created: ${ADMIN_EMAIL}` : `Account ${ADMIN_EMAIL} already exists.`);
 }
 
+/* One time only: the Ibiza's built-in showroom photos (number plates already replaced)
+   become ordinary vehicle photos the admin can reorder, replace or delete.
+   A marker row makes sure deleted photos never come back on a later run. */
+const MARK = "seed:ibiza-photos";
+const marked = (await client.query("SELECT 1 FROM schema_migrations WHERE name = $1", [MARK])).rowCount;
+const ibiza = (await client.query("SELECT id FROM cars WHERE slug = 'seat-ibiza-fr'")).rows[0];
+const hasTable = (await client.query("SELECT to_regclass('car_photos') AS t")).rows[0].t;
+if (!marked && ibiza && hasTable) {
+  const { default: sharp } = await import("sharp");
+  const { readFile } = await import("node:fs/promises");
+  const path = await import("node:path");
+  const { ROOT } = await import("./db-env.mjs");
+  const files = ["ext-front34", "ext-front", "ext-rear34", "ext-rear", "ext-grille"].map((n) => path.join(ROOT, "public", "img", `${n}-${n === "ext-grille" ? 900 : 1100}.webp`));
+  const existing = (await client.query("SELECT count(*)::int AS n FROM car_photos WHERE car_id = $1", [ibiza.id])).rows[0].n;
+  let pos = existing;
+  for (const f of files) {
+    if (pos >= 10) break;
+    const input = await readFile(f).catch(() => null);
+    if (!input) continue;
+    const large = await sharp(input).resize({ width: 1600, withoutEnlargement: true }).webp({ quality: 78 }).toBuffer({ resolveWithObject: true });
+    const small = await sharp(input).resize({ width: 720, withoutEnlargement: true }).webp({ quality: 72 }).toBuffer();
+    await client.query(
+      "INSERT INTO car_photos (car_id, position, width, height, small, large, bytes) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+      [ibiza.id, pos++, large.info.width, large.info.height, small, large.data, large.data.length + small.length],
+    );
+  }
+  await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [MARK]);
+  console.log(`${pos - existing} Ibiza photo(s) imported.`);
+}
+
 console.log("Seed complete.");
 await client.end();
