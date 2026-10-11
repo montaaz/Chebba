@@ -1,7 +1,18 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Icon from "../Icon";
+
+// the map is only downloaded when someone chooses to place a point by hand
+const RouteMap = dynamic(() => import("../booking/RouteMap"), {
+  ssr: false,
+  loading: () => (
+    <div className="grid h-full place-items-center">
+      <span className="size-6 animate-spin rounded-full border-2 border-aqua border-t-transparent" />
+    </div>
+  ),
+});
 
 export type Spot = { label: string; lat: number; lng: number; kind?: string };
 
@@ -11,6 +22,8 @@ type Props = {
   current?: Spot | null;
   onPick: (p: Spot) => void;
   placeholder: string;
+  /* which pin the chosen point is drawn with on the map */
+  pin?: "a" | "b";
 };
 
 const RECENT_KEY = "chebba:recent-places";
@@ -40,7 +53,7 @@ const split = (label: string) => {
 };
 
 /* Search any address in the service area, use the phone's position, or pick one used before on this device. */
-export default function PlaceSearch({ exclude, current, onPick, placeholder }: Props) {
+export default function PlaceSearch({ exclude, current, onPick, placeholder, pin = "a" }: Props) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Spot[]>([]);
   const [busy, setBusy] = useState(false);
@@ -49,6 +62,11 @@ export default function PlaceSearch({ exclude, current, onPick, placeholder }: P
   const [recent, setRecent] = useState<Spot[]>([]);
   const [active, setActive] = useState(-1);
   const input = useRef<HTMLInputElement>(null);
+  // "place it on the map": for addresses the free map data does not know (small shops, cafés…)
+  const [mapMode, setMapMode] = useState(false);
+  const [draft, setDraft] = useState<Spot | null>(null);
+  const [naming, setNaming] = useState("");
+  const [area, setArea] = useState("");
 
   useEffect(() => {
     setRecent(readRecent());
@@ -156,6 +174,91 @@ export default function PlaceSearch({ exclude, current, onPick, placeholder }: P
     );
   };
 
+  const openMap = () => {
+    setNaming(q.trim());
+    setDraft(null);
+    setArea("");
+    setMapMode(true);
+  };
+
+  const placeOnMap = async (lat: number, lng: number) => {
+    setDraft({ label: "", lat, lng });
+    setArea("…");
+    try {
+      const res = await fetch(`/api/geo/search?lat=${lat.toFixed(5)}&lng=${lng.toFixed(5)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setDraft(null);
+        setArea("");
+        setError(data.error ?? "Ce point est hors de la zone desservie.");
+        return;
+      }
+      setError("");
+      setArea(String(data.place.label).startsWith("Point sur la carte") ? "" : data.place.label);
+    } catch {
+      setArea("");
+    }
+  };
+
+  const confirmMap = () => {
+    if (!draft) return;
+    const name = naming.trim().slice(0, 80);
+    const where = area && area !== "…" ? area : "";
+    const label = name ? (where ? `${name}, ${where}` : name) : where || `Point sur la carte (${draft.lat.toFixed(4)}, ${draft.lng.toFixed(4)})`;
+    pick({ label: label.slice(0, 200), lat: draft.lat, lng: draft.lng });
+  };
+
+  if (mapMode) {
+    const shown = draft ?? (current ? current : null);
+    return (
+      <div className="flex flex-col gap-3 max-md:min-h-[55svh]">
+        <button type="button" onClick={() => setMapMode(false)} className="inline-flex min-h-11 cursor-pointer items-center gap-2 self-start text-sm text-mist hover:text-ink">
+          <Icon name="back" size={18} /> Retour à la recherche
+        </button>
+        <p className="text-sm text-mist">Touchez la carte à l&apos;endroit exact. Zoomez avec deux doigts ou les boutons + / −.</p>
+        <div className="relative h-[min(300px,38svh)] overflow-hidden rounded-2xl border border-line">
+          <RouteMap
+            pickup={pin === "a" ? shown : exclude ?? null}
+            dropoff={pin === "b" ? shown : null}
+            polyline=""
+            onPick={placeOnMap}
+          />
+        </div>
+        {error && <p className="rounded-xl bg-coral/10 px-3 py-2 text-sm text-[#f5b39a]">{error}</p>}
+        <label className="flex flex-col gap-1.5">
+          <span className="text-[0.68rem] font-semibold tracking-[0.18em] text-mist uppercase">Nom du lieu</span>
+          <input
+            value={naming}
+            onChange={(e) => setNaming(e.target.value)}
+            maxLength={80}
+            placeholder="Ex. Business Bey Café"
+            className="min-h-12 w-full rounded-xl border border-hair bg-white/5 px-4 text-base outline-none placeholder:text-fog focus:border-aqua"
+          />
+        </label>
+        <p className="min-h-5 text-xs text-fog">{draft ? (area === "…" ? "Recherche du quartier…" : area ? `Quartier : ${area}` : "Point choisi") : "Aucun point choisi pour le moment."}</p>
+        <button type="button" disabled={!draft || area === "…"} onClick={confirmMap} className="btn btn--solid min-h-12 w-full">
+          <Icon name="check" size={18} /> Utiliser ce point
+        </button>
+      </div>
+    );
+  }
+
+  const mapButton = (
+    <button
+      type="button"
+      onClick={openMap}
+      className="flex min-h-13 w-full cursor-pointer items-center gap-3 rounded-2xl border border-dashed border-line px-2.5 text-left transition-colors hover:bg-white/[0.05]"
+    >
+      <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/[0.06] text-aqua">
+        <Icon name="pin" size={18} />
+      </span>
+      <span>
+        <span className="block font-semibold">{searching ? "Vous ne le trouvez pas ? Placez-le sur la carte" : "Choisir sur la carte"}</span>
+        <span className="block text-xs text-mist">Café, boutique, maison… tout endroit précis</span>
+      </span>
+    </button>
+  );
+
   return (
     // a steady height on phones: the sheet must not jump while results come and go
     <div className="flex flex-col gap-3 max-md:min-h-[55svh]">
@@ -204,9 +307,10 @@ export default function PlaceSearch({ exclude, current, onPick, placeholder }: P
           {!busy && !results.length && !error && (
             <li className="rounded-2xl bg-white/[0.03] px-4 py-6 text-center text-sm text-mist">
               Aucun lieu trouvé en Tunisie pour « {q.trim()} ».
-              <span className="mt-1 block text-xs text-fog">Essayez un nom de ville, de quartier ou d&apos;hôtel.</span>
+              <span className="mt-1 block text-xs text-fog">Placez-le sur la carte ci-dessous, en gardant son nom.</span>
             </li>
           )}
+          {!busy && <li className="mt-2">{mapButton}</li>}
         </ul>
       ) : (
         <>
@@ -232,6 +336,8 @@ export default function PlaceSearch({ exclude, current, onPick, placeholder }: P
               <span className="block text-xs text-mist">Idéal si l&apos;on vient vous chercher là où vous êtes</span>
             </span>
           </button>
+
+          {mapButton}
 
           {recent.length > 0 ? (
             <div>

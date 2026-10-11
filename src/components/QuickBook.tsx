@@ -229,6 +229,7 @@ export default function QuickBook({ today, perKm, perDay, currency }: Props) {
             current={open === "b" ? b : a}
             exclude={range ? null : open === "b" ? a : b}
             onPick={choosePlace}
+            pin={open === "b" ? "b" : "a"}
             placeholder={open === "b" ? "Rechercher la destination" : range ? "Rechercher le lieu de prise en charge" : "Rechercher le point de départ"}
           />
         </Popover>
