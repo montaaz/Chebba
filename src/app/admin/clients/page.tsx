@@ -3,10 +3,12 @@ import Link from "next/link";
 import { toggleUserAction } from "@/app/actions/admin";
 import Avatar from "@/components/app/Avatar";
 import PageHeader from "@/components/app/PageHeader";
+import NewClient from "@/components/admin/NewClient";
 import { INPUT } from "@/components/ui";
 import { dateOnly, money } from "@/lib/format";
 import { query } from "@/lib/server/db";
 import { getSettings } from "@/lib/server/settings";
+import { SITE } from "@/lib/site";
 import { clean, toInt } from "@/lib/validate";
 
 export const metadata: Metadata = { title: "Clients" };
@@ -64,15 +66,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   return (
     <div className="flex flex-col gap-4">
       <PageHeader eyebrow="Administration" title="Clients" sub="Qui réserve, combien et depuis quand." />
-      <form className="flex gap-2" action="/admin/clients" role="search">
-        <input className={`${INPUT} min-w-0 md:max-w-md`} name="q" type="search" enterKeyHint="search" defaultValue={q} placeholder="Nom, e-mail, téléphone" maxLength={60} />
-        <button className="btn btn--ghost shrink-0" type="submit">
-          <span className="max-sm:hidden">Rechercher</span>
-          <span className="sm:hidden" aria-label="Rechercher">
-            →
-          </span>
-        </button>
-      </form>
+      <NewClient site={SITE.url}>
+        <form className="flex gap-2" action="/admin/clients" role="search">
+          <input className={`${INPUT} min-w-0 flex-1`} name="q" type="search" enterKeyHint="search" defaultValue={q} placeholder="Nom, e-mail, téléphone" maxLength={60} />
+          <button className="btn btn--ghost shrink-0" type="submit">
+            <span className="max-sm:hidden">Rechercher</span>
+            <span className="sm:hidden" aria-label="Rechercher">
+              →
+            </span>
+          </button>
+        </form>
+      </NewClient>
 
       <ul className="grid grid-cols-[minmax(0,1fr)] gap-2.5 sm:grid-cols-2 lg:hidden">
         {list.map((u) => (

@@ -9,7 +9,7 @@ import { inArea } from "@/lib/server/geo";
 import { clientBody, clientTitle, mailStatus, notifyClient } from "@/lib/server/notify";
 import { clearConfigCache } from "@/lib/server/settings";
 import { NEXT_STATUS } from "@/lib/format";
-import { clean, isEmail, isPhone, toAmount, toInt } from "@/lib/validate";
+import { clean, isEmail, isName, isPhone, toAmount, toInt } from "@/lib/validate";
 import type { Status } from "@/lib/types";
 
 export type FormState = { error?: string; saved?: boolean; newId?: number };
@@ -213,6 +213,10 @@ export async function toggleUserAction(form: FormData) {
   revalidatePath("/admin/clients");
 }
 
+// easy to read and type on a phone: no 0/O, 1/l/I
+const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const newPassword = () => Array.from(randomBytes(10), (b) => ALPHABET[b % ALPHABET.length]).join("");
+
 export type PasswordReset = { ok: true; password: string; email: string; phone: string; name: string } | { ok: false; error: string };
 
 /* Passwords are stored only as a one-way fingerprint and can never be shown.
@@ -222,10 +226,7 @@ export async function resetClientPasswordAction(userId: number): Promise<Passwor
   const admin = await requireAdmin();
   const id = toInt(userId, 1, ID_MAX);
   if (!id || id === admin.id) return { ok: false, error: "Compte introuvable." };
-  // easy to read and type on a phone: no 0/O, 1/l/I
-  const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const bytes = randomBytes(10);
-  const password = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
+  const password = newPassword();
   const u = await transaction(async (db) => {
     const { rows } = await db.query<{ email: string; phone: string; full_name: string }>(
       "UPDATE users SET password_hash = $2 WHERE id = $1 AND role = 'client' RETURNING email, phone, full_name",
@@ -236,4 +237,30 @@ export async function resetClientPasswordAction(userId: number): Promise<Passwor
   });
   if (!u) return { ok: false, error: "Compte introuvable." };
   return { ok: true, password, email: u.email, phone: u.phone, name: u.full_name };
+}
+
+export type NewClient = { ok: true; id: number; password: string; email: string; phone: string; name: string } | { ok: false; error: string };
+
+/* The admin opens an account for a client (met at the agency, on the phone…).
+   The password is generated here and shown once so it can be sent to the client. */
+export async function createClientAction(input: { name: unknown; email: unknown; phone: unknown }): Promise<NewClient> {
+  await requireAdmin();
+  const name = clean(input.name, 80);
+  const email = clean(input.email, 160).toLowerCase();
+  const phone = clean(input.phone, 24);
+  if (!isName(name)) return { ok: false, error: "Indiquez le nom complet du client." };
+  if (!isEmail(email)) return { ok: false, error: "Indiquez une adresse e-mail valide : c'est son identifiant de connexion." };
+  if (!isPhone(phone)) return { ok: false, error: "Indiquez un numéro de téléphone valide." };
+  const password = newPassword();
+  try {
+    const user = await one<{ id: number }>(
+      "INSERT INTO users (full_name, email, phone, password_hash) VALUES ($1, $2, $3, $4) RETURNING id",
+      [name, email, phone, await hashPassword(password)],
+    );
+    revalidatePath("/admin/clients");
+    return { ok: true, id: user!.id, password, email, phone, name };
+  } catch (err) {
+    if (isUniqueViolation(err)) return { ok: false, error: "Un compte existe déjà avec cet e-mail : ouvrez sa fiche pour lui créer un nouveau mot de passe." };
+    throw err;
+  }
 }

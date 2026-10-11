@@ -2,51 +2,22 @@
 
 import { useState } from "react";
 import { resetClientPasswordAction, type PasswordReset } from "@/app/actions/admin";
+import Credentials from "@/components/admin/Credentials";
 import Icon from "@/components/Icon";
 import { Notice } from "@/components/ui";
-import { waLink } from "@/lib/whatsapp";
 
 /* New password for a client, shown once, ready to send. The old one cannot be read by anyone. */
 export default function ResetPassword({ userId, site }: { userId: number; site: string }) {
   const [ask, setAsk] = useState(false);
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<PasswordReset | null>(null);
-  const [copied, setCopied] = useState(false);
 
-  if (res?.ok) {
-    const message = `Bonjour ${res.name.split(" ")[0]}, voici vos accès Chebba Auto Car :\n\nSite : ${site}/connexion\nE-mail : ${res.email}\nMot de passe : ${res.password}\n\nVous pourrez le changer dans « Mon profil ».`;
+  if (res?.ok)
     return (
-      <div className="flex flex-col gap-3 rounded-2xl border border-aqua/40 bg-aqua/10 p-4">
-        <p className="text-sm font-semibold">Nouveau mot de passe créé</p>
-        <dl className="grid gap-2 text-sm">
-          <div className="flex justify-between gap-3 rounded-xl bg-black/25 px-3 py-2">
-            <dt className="text-mist">Identifiant</dt>
-            <dd className="font-semibold break-all">{res.email}</dd>
-          </div>
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-black/25 px-3 py-2">
-            <dt className="text-mist">Mot de passe</dt>
-            <dd className="font-display text-lg font-extrabold tracking-wider text-sand select-all">{res.password}</dd>
-          </div>
-        </dl>
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            className="btn btn--ghost min-h-11"
-            onClick={async () => {
-              await navigator.clipboard?.writeText(message).catch(() => {});
-              setCopied(true);
-            }}
-          >
-            {copied ? "Copié ✓" : "Copier"}
-          </button>
-          <a className="btn btn--solid min-h-11" href={waLink(res.phone, message)} target="_blank" rel="noopener noreferrer">
-            <Icon name="chat" size={18} /> WhatsApp
-          </a>
-        </div>
-        <p className="text-xs text-fog">Affiché une seule fois : il n&apos;est enregistré nulle part en clair. Le client a été déconnecté de ses appareils.</p>
-      </div>
+      <Credentials title="Nouveau mot de passe créé" name={res.name} email={res.email} phone={res.phone} password={res.password} site={site}>
+        <p className="-mt-2 text-xs text-fog">Le client a été déconnecté de ses appareils.</p>
+      </Credentials>
     );
-  }
 
   return (
     <div className="flex flex-col gap-2">
