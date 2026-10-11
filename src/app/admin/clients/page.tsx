@@ -79,7 +79,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           <li key={u.id} className="rounded-2xl border border-hair bg-white/[0.03] p-4">
             <p className="flex items-center gap-3">
               <Avatar name={u.full_name} size={40} />
-              <span className="min-w-0 flex-1 truncate font-semibold">{u.full_name}</span>
+              <Link prefetch={false} href={`/admin/clients/${u.id}`} className="min-w-0 flex-1 truncate font-semibold hover:text-aqua">{u.full_name}</Link>
               {!u.is_active && <span className="shrink-0 rounded-full border border-coral/40 px-2 py-0.5 text-[0.68rem] text-[#f5b39a]">✕ Bloqué</span>}
             </p>
             <p className="mt-1 truncate text-xs text-mist">{u.email}</p>
@@ -101,8 +101,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
               <a className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-line px-4 text-sm font-semibold" href={`tel:${u.phone.replace(/[^\d+]/g, "")}`}>
                 Appeler
               </a>
-              <Link prefetch={false} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-line px-4 text-sm font-semibold" href={`/admin/reservations?q=${encodeURIComponent(u.phone)}`}>
-                Réservations
+              <Link prefetch={false} className="inline-flex min-h-11 flex-1 items-center justify-center rounded-full border border-line px-4 text-sm font-semibold" href={`/admin/clients/${u.id}`}>
+                Fiche
               </Link>
               <form action={toggleUserAction} className="flex-1">
                 <input type="hidden" name="id" value={u.id} />
@@ -133,7 +133,9 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
                 <td className="px-4 py-3">
                   <span className="flex items-center gap-3">
                     <Avatar name={u.full_name} size={34} />
-                    <span className="font-semibold">{u.full_name}</span>
+                    <Link prefetch={false} href={`/admin/clients/${u.id}`} className="font-semibold hover:text-aqua hover:underline">
+                      {u.full_name}
+                    </Link>
                   </span>
                   {!u.is_active && <span className="ml-2 rounded-full border border-coral/40 px-2 py-0.5 text-[0.68rem] text-[#f5b39a]">✕ Bloqué</span>}
                 </td>
@@ -143,7 +145,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
                 </td>
                 <td className="px-4 py-3 whitespace-nowrap text-mist">{dateOnly(u.created_at)}</td>
                 <td className="px-4 py-3 tabular-nums">
-                  <Link prefetch={false} className="inline-flex min-h-11 min-w-11 items-center hover:text-aqua hover:underline" href={`/admin/reservations?q=${encodeURIComponent(u.phone)}`}>
+                  <Link prefetch={false} className="inline-flex min-h-11 min-w-11 items-center hover:text-aqua hover:underline" href={`/admin/clients/${u.id}`}>
                     {u.bookings}
                   </Link>
                 </td>

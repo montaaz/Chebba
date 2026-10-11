@@ -5,6 +5,7 @@ import { setStatusAction } from "@/app/actions/admin";
 import Avatar from "@/components/app/Avatar";
 import TripMap from "@/components/app/TripMap";
 import StatusSteps from "@/components/app/StatusSteps";
+import DocumentManager from "@/components/admin/DocumentManager";
 import NoteForm from "@/components/admin/NoteForm";
 import Icon from "@/components/Icon";
 import { PANEL, StatusBadge } from "@/components/ui";
@@ -13,7 +14,7 @@ import { reservationById } from "@/lib/server/booking";
 import { query } from "@/lib/server/db";
 import { SITE } from "@/lib/site";
 import { toInt } from "@/lib/validate";
-import type { Status } from "@/lib/types";
+import type { ReservationDocument, Status } from "@/lib/types";
 import { messageToClient, waLink } from "@/lib/whatsapp";
 
 export const metadata: Metadata = { title: "Réservation" };
@@ -33,7 +34,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   if (!id) notFound();
   const r = await reservationById(id);
   if (!r) notFound();
-  const [events, client] = await Promise.all([
+  const [events, client, docs] = await Promise.all([
     query<Event>(
       `SELECT e.id, e.from_status, e.to_status, e.note, e.created_at, u.full_name AS actor
          FROM reservation_events e LEFT JOIN users u ON u.id = e.actor_id
@@ -47,6 +48,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
          FROM users u WHERE u.id = $1`,
       [r.user_id],
     ),
+    query<ReservationDocument>("SELECT id, reservation_id, label, width, height, version, created_at FROM reservation_documents WHERE reservation_id = $1 ORDER BY id", [id]),
   ]);
   const c = client[0];
   const tel = r.customer_phone.replace(/[^\d+]/g, "");
@@ -170,7 +172,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
             <div className="flex items-center gap-3">
               <Avatar name={r.customer_name} size={48} />
               <div className="min-w-0">
-                <p className="truncate font-semibold">{r.customer_name}</p>
+                <Link prefetch={false} href={`/admin/clients/${r.user_id}`} className="block truncate font-semibold hover:text-aqua hover:underline">{r.customer_name}</Link>
                 <p className="truncate text-sm text-mist">{c?.email}</p>
               </div>
             </div>
@@ -216,6 +218,13 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               <span className="font-display text-3xl font-extrabold text-sand tabular-nums">{money(r.total_price, r.currency)}</span>
             </p>
             <p className="mt-2 text-xs text-fog">Tarif figé au moment de la réservation · créée le {dateTime(r.created_at)}</p>
+          </section>
+
+          <section id="documents" className={`${PANEL} scroll-mt-24`}>
+            <h2 className="mb-3 flex items-center gap-2 text-base">
+              Contrat &amp; documents <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs tabular-nums">{docs.length}</span>
+            </h2>
+            <DocumentManager reservationId={r.id} reference={r.reference} docs={docs} />
           </section>
 
           <section className={PANEL}>

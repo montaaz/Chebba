@@ -24,3 +24,21 @@ export async function processPhoto(input: Buffer) {
   const small = await base.clone().resize({ width: PHOTO_SIZES.small, withoutEnlargement: true }).webp({ quality: 70, effort: 5 }).toBuffer();
   return { large: large.data, small, width: large.info.width, height: large.info.height, bytes: large.data.length + small.length };
 }
+
+/* A photographed document must stay readable when zoomed: bigger and sharper than vehicle photos.
+   `turn` rotates it by a quarter turn (90, 180, 270) to fix a sideways shot. */
+export async function processDocument(input: Buffer, turn = 0) {
+  if (input.length > MAX_INPUT) throw new PhotoError("Photo trop lourde (12 Mo maximum).");
+  let meta;
+  try {
+    meta = await sharp(input, { failOn: "error" }).metadata();
+  } catch {
+    throw new PhotoError("Ce fichier n'est pas une image lisible (JPEG, PNG ou WebP).");
+  }
+  if (!meta.format || !["jpeg", "png", "webp", "avif", "heif"].includes(meta.format)) throw new PhotoError("Format non pris en charge : utilisez JPEG, PNG ou WebP.");
+  if ((meta.width ?? 0) < 300 || (meta.height ?? 0) < 300) throw new PhotoError("Photo trop petite pour être lisible.");
+  const base = sharp(input, { failOn: "error" }).rotate().rotate(turn);
+  const large = await base.clone().resize({ width: 2200, height: 2200, fit: "inside", withoutEnlargement: true }).webp({ quality: 82, effort: 4 }).toBuffer({ resolveWithObject: true });
+  const small = await base.clone().resize({ width: 480, height: 480, fit: "inside" }).webp({ quality: 70, effort: 4 }).toBuffer();
+  return { large: large.data, small, width: large.info.width, height: large.info.height, bytes: large.data.length + small.length };
+}

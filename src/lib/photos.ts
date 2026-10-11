@@ -13,3 +13,7 @@ export const groupPhotos = (photos: CarPhoto[]) => {
   for (const p of photos) (by.get(p.car_id) ?? by.set(p.car_id, []).get(p.car_id)!).push(p);
   return by;
 };
+
+export const MAX_DOCUMENTS = 20;
+/* contract photos: admin-only route, never cached by shared caches */
+export const docUrl = (d: { id: number; version: number }, size: "small" | "large") => `/admin/documents/${d.id}/${size}-${d.version}.webp`;

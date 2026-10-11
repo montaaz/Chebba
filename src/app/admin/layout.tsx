@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import AppShell from "@/components/app/AppShell";
+import Lightbox from "@/components/Lightbox";
 import { requireAdmin } from "@/lib/server/auth";
 
 export const metadata: Metadata = { title: { default: "Administration", template: "%s · Admin" }, robots: { index: false } };
@@ -10,6 +11,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   return (
     <AppShell user={user} area="admin">
       {children}
+      <Lightbox />
     </AppShell>
   );
 }

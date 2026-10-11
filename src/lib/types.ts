@@ -105,3 +105,5 @@ export type Reservation = {
 };
 
 export type CarPhoto = { id: number; car_id: number; position: number; width: number; height: number; version: number };
+
+export type ReservationDocument = { id: number; reservation_id: number; label: string; width: number; height: number; version: number; created_at: Date };

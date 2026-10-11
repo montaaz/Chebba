@@ -39,6 +39,8 @@ export default function Lightbox() {
   const [index, setIndex] = useState<number | null>(null);
   const [chrome, setChrome] = useState(true);
   const [zoomed, setZoomed] = useState(false);
+  // quarter turns of the photo on screen (to read a document photographed sideways)
+  const [turn, setTurn] = useState(0);
 
   const stage = useRef<HTMLDivElement>(null);
   const track = useRef<HTMLDivElement>(null);
@@ -218,6 +220,10 @@ export default function Lightbox() {
       else if (e.key === "+" || e.key === "=") zoomAt(Math.min(MAX, t.current.s * 1.6), 0, 0);
       else if (e.key === "-") zoomAt(Math.max(1, t.current.s / 1.6), 0, 0);
       else if (e.key === "0") reset(true);
+      else if (e.key === "r" || e.key === "R") {
+        reset(true);
+        setTurn((r) => (r + 1) % 4);
+      }
       else if (e.key === "Tab") {
         // keep keyboard focus inside the viewer
         const f = Array.from(document.querySelectorAll<HTMLElement>("[data-lightbox] button:not([disabled])"));
@@ -248,6 +254,7 @@ export default function Lightbox() {
   useEffect(() => {
     if (index === null) return;
     reset(false);
+    setTurn(0);
     slideTo(index, 0, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
@@ -448,8 +455,14 @@ export default function Lightbox() {
                         alt={it.alt}
                         draggable={false}
                         decoding="async"
-                        className="max-h-full max-w-full object-contain"
-                        style={{ aspectRatio: String(info.ratio) }}
+                        className="object-contain transition-transform duration-300"
+                        style={{
+                          aspectRatio: String(info.ratio),
+                          // turned a quarter: the free space is the other way round
+                          maxWidth: i === index && turn % 2 ? "100vh" : "100%",
+                          maxHeight: i === index && turn % 2 ? "100vw" : "100%",
+                          transform: i === index && turn ? `rotate(${turn * 90}deg)` : undefined,
+                        }}
                       />
                     </picture>
                   </div>
@@ -470,6 +483,18 @@ export default function Lightbox() {
             {index + 1} / {items.length}
           </span>
           <div className="pointer-events-auto flex items-center gap-2">
+            <button
+              type="button"
+              className={btn}
+              aria-label="Tourner la photo"
+              title="Tourner (R)"
+              onClick={() => {
+                reset(true);
+                setTurn((r) => (r + 1) % 4);
+              }}
+            >
+              <span className="text-xl leading-none">↻</span>
+            </button>
             <button
               type="button"
               className={`${btn} max-md:hidden`}

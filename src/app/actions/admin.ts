@@ -1,7 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/server/auth";
+import { randomBytes } from "node:crypto";
+import { hashPassword, requireAdmin } from "@/lib/server/auth";
 import { reservationById } from "@/lib/server/booking";
 import { isUniqueViolation, one, query, transaction } from "@/lib/server/db";
 import { inArea } from "@/lib/server/geo";
@@ -210,4 +211,29 @@ export async function toggleUserAction(form: FormData) {
     if (rows[0] && !rows[0].is_active) await db.query("DELETE FROM sessions WHERE user_id = $1", [id]);
   });
   revalidatePath("/admin/clients");
+}
+
+export type PasswordReset = { ok: true; password: string; email: string; phone: string; name: string } | { ok: false; error: string };
+
+/* Passwords are stored only as a one-way fingerprint and can never be shown.
+   The admin can give a client a new one: shown once here, then only the fingerprint is kept.
+   All the client's open sessions are closed. */
+export async function resetClientPasswordAction(userId: number): Promise<PasswordReset> {
+  const admin = await requireAdmin();
+  const id = toInt(userId, 1, ID_MAX);
+  if (!id || id === admin.id) return { ok: false, error: "Compte introuvable." };
+  // easy to read and type on a phone: no 0/O, 1/l/I
+  const ALPHABET = "abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const bytes = randomBytes(10);
+  const password = Array.from(bytes, (b) => ALPHABET[b % ALPHABET.length]).join("");
+  const u = await transaction(async (db) => {
+    const { rows } = await db.query<{ email: string; phone: string; full_name: string }>(
+      "UPDATE users SET password_hash = $2 WHERE id = $1 AND role = 'client' RETURNING email, phone, full_name",
+      [id, await hashPassword(password)],
+    );
+    if (rows[0]) await db.query("DELETE FROM sessions WHERE user_id = $1", [id]);
+    return rows[0];
+  });
+  if (!u) return { ok: false, error: "Compte introuvable." };
+  return { ok: true, password, email: u.email, phone: u.phone, name: u.full_name };
 }
