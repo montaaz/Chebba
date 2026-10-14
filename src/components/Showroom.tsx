@@ -110,15 +110,23 @@ export default function Showroom({ cars }: { cars: ShowCar[] }) {
           <p className="eyebrow">{cars.length > 1 ? "Notre flotte" : "Tour du propriétaire"}</p>
 
           {cars.length > 1 && (
-            <div className="mt-4 -mb-1 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Véhicules">
+            <div
+              // phones: one swipeable line, faded at the edge so the next car shows there is more; wider screens: every car on view
+              className="mt-4 -mb-1 flex gap-1.5 max-md:-mr-4 max-md:snap-x max-md:overflow-x-auto max-md:pr-10 max-md:pb-1 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-3rem),transparent)] max-md:[scrollbar-width:none] md:flex-wrap max-md:[&::-webkit-scrollbar]:hidden"
+              role="tablist"
+              aria-label="Véhicules"
+            >
               {cars.map((c, i) => (
                 <button
                   key={c.id}
                   type="button"
                   role="tab"
                   aria-selected={i === carIdx}
-                  onClick={() => pickCar(i)}
-                  className={`min-h-11 shrink-0 cursor-pointer rounded-full border px-4 text-sm font-semibold whitespace-nowrap transition-colors ${i === carIdx ? "border-aqua bg-aqua/15 text-ink" : "border-hair text-mist hover:text-ink"}`}
+                  onClick={(e) => {
+                    e.currentTarget.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+                    pickCar(i);
+                  }}
+                  className={`min-h-11 max-w-full shrink-0 cursor-pointer truncate rounded-full snap-start border px-4 text-sm font-semibold whitespace-nowrap transition-colors ${i === carIdx ? "border-aqua bg-aqua/15 text-ink" : "border-hair text-mist hover:text-ink"}`}
                 >
                   {c.name}
                 </button>

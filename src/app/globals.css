@@ -693,6 +693,20 @@
       font-size: 0.95rem;
     }
   }
+  /* short phones (iPhone SE…): keep the photo, the cars and the button on screen */
+  @media (max-width: 900px) and (max-height: 640px) and (orientation: portrait) {
+    .show__stage {
+      gap: 0.9rem;
+      padding-top: 4.2rem;
+    }
+    .frame__view {
+      max-height: 32vh;
+    }
+    .cap__text,
+    .show__dots {
+      display: none;
+    }
+  }
 }
 
 /* ============ REDUCED MOTION ============ */
