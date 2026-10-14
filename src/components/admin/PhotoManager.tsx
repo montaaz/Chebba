@@ -180,7 +180,7 @@ export default function PhotoManager({ carId, carName, photos }: { carId: number
       ) : (
         <ol className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(190px,1fr))] gap-3">
           {list.map((p, i) => (
-            <li key={p.id} className="group relative overflow-hidden rounded-xl border border-hair bg-black/30">
+            <li key={p.id} className="group/photo relative overflow-hidden rounded-xl border border-hair bg-black/30">
               <img src={photoUrl(p, "small")} alt={`${carName}, photo ${i + 1}`} width={p.width} height={p.height} loading="lazy" className="aspect-video w-full object-cover min-[480px]:aspect-[4/3]" />
               <span className="absolute top-2 left-2 rounded-full bg-night/85 px-2 py-0.5 text-[0.7rem] font-bold tabular-nums">
                 {i === 0 ? "★ Couverture" : i + 1}
@@ -214,7 +214,7 @@ export default function PhotoManager({ carId, carName, photos }: { carId: number
                 </div>
               </div>
               {i !== 0 && (
-                <button type="button" disabled={busy} onClick={() => move(i, 0)} className="absolute top-2 right-2 hidden min-h-8 cursor-pointer rounded-full bg-night/85 px-2.5 text-[0.7rem] font-semibold group-hover:block focus:block max-[479px]:block">
+                <button type="button" disabled={busy} onClick={() => move(i, 0)} className="absolute top-2 right-2 hidden min-h-8 cursor-pointer rounded-full bg-night/85 px-2.5 text-[0.7rem] font-semibold group-hover/photo:block focus:block max-[479px]:block">
                   Mettre en 1ʳᵉ
                 </button>
               )}
