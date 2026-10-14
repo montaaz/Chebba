@@ -44,15 +44,34 @@ export async function saveSettingsAction(_: FormState, form: FormData): Promise<
   if (phone && !isPhone(phone)) return { error: "Le téléphone de contact est invalide." };
   if (email && !isEmail(email)) return { error: "L'e-mail de contact est invalide." };
 
-  await query(
-    `UPDATE settings SET currency=$1, price_per_km=$2, transfer_base_fee=$3, transfer_min_price=$4,
-        round_trip_discount_pct=$5, night_surcharge_pct=$6, night_start_hour=$7, night_end_hour=$8,
-        max_transfer_km=$9, min_lead_hours=$10, contact_phone=$11, contact_whatsapp=$12, contact_email=$13,
-        updated_at=now()
-      WHERE id = 1`,
-    [...Object.values(v), phone, whatsapp, email],
-  );
+  // per-vehicle tariffs, edited in the same form: "car" lists the ids shown on the page
+  const cars: { id: number; perDay: number; perKm: number | null; rental: boolean; transfer: boolean }[] = [];
+  for (const raw of form.getAll("car")) {
+    const id = toInt(raw, 1, ID_MAX);
+    if (!id) continue;
+    const perDay = toAmount(form.get(`day_${id}`));
+    const kmRaw = clean(form.get(`km_${id}`), 20);
+    const perKm = kmRaw === "" ? null : toAmount(kmRaw, 10_000);
+    if (perDay === null || (kmRaw !== "" && perKm === null)) return { error: "Vérifiez les tarifs des véhicules : un prix est invalide." };
+    cars.push({ id, perDay, perKm, rental: form.get(`rental_${id}`) === "on", transfer: form.get(`transfer_${id}`) === "on" });
+  }
+
+  await transaction(async (db) => {
+    await db.query(
+      `UPDATE settings SET currency=$1, price_per_km=$2, transfer_base_fee=$3, transfer_min_price=$4,
+          round_trip_discount_pct=$5, night_surcharge_pct=$6, night_start_hour=$7, night_end_hour=$8,
+          max_transfer_km=$9, min_lead_hours=$10, contact_phone=$11, contact_whatsapp=$12, contact_email=$13,
+          updated_at=now()
+        WHERE id = 1`,
+      [...Object.values(v), phone, whatsapp, email],
+    );
+    for (const c of cars)
+      await db.query("UPDATE cars SET price_per_day = $2, price_per_km = $3, for_rental = $4, for_transfer = $5 WHERE id = $1", [
+        c.id, c.perDay, c.perKm, c.rental, c.transfer,
+      ]);
+  });
   published();
+  revalidatePath("/admin/vehicules");
   return { saved: true };
 }
 

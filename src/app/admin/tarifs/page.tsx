@@ -4,8 +4,10 @@ import PageHeader from "@/components/app/PageHeader";
 import PlaceForm from "@/components/admin/PlaceForm";
 import SettingsForm from "@/components/admin/SettingsForm";
 import { PANEL } from "@/components/ui";
+import { carName } from "@/lib/format";
 import { one, query } from "@/lib/server/db";
-import type { Place, Settings } from "@/lib/types";
+import { photoUrl } from "@/lib/photos";
+import type { Car, CarPhoto, Place, Settings } from "@/lib/types";
 
 export const metadata: Metadata = { title: "Tarifs & configuration" };
 
@@ -13,16 +15,31 @@ const KIND: Record<Place["kind"], string> = { airport: "Aéroport", agency: "Age
 
 export default async function Page() {
   // read straight from the table: the admin must always see the saved values, never a cached copy
-  const [settings, places] = await Promise.all([
+  const [settings, places, cars, covers] = await Promise.all([
     one<Settings>("SELECT * FROM settings WHERE id = 1"),
     query<Place>("SELECT * FROM places ORDER BY sort_order, id"),
+    query<Car>("SELECT * FROM cars ORDER BY sort_order, id"),
+    // first photo of each vehicle, never the image bytes
+    query<CarPhoto>("SELECT DISTINCT ON (car_id) id, car_id, position, width, height, version FROM car_photos ORDER BY car_id, position, id"),
   ]);
+  const cover = new Map(covers.map((p) => [p.car_id, photoUrl(p, "small")]));
+  const fleet = cars.map((c) => ({
+    id: c.id,
+    name: carName(c),
+    year: c.model_year,
+    active: c.is_active,
+    cover: cover.get(c.id) ?? null,
+    perDay: c.price_per_day,
+    perKm: c.price_per_km,
+    rental: c.for_rental,
+    transfer: c.for_transfer,
+  }));
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader eyebrow="Administration" title="Tarifs & configuration" sub="Tout ce qui détermine le prix payé par le client se règle ici." />
 
-      <SettingsForm settings={settings!} />
+      <SettingsForm settings={settings!} fleet={fleet} />
 
       <section className={PANEL}>
         <h2 className="text-base">Lieux fréquents</h2>
