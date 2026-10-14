@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import Icon from "../Icon";
+import { locateMe } from "@/lib/locate";
 
 // the map is only downloaded when someone chooses to place a point by hand
 const RouteMap = dynamic(() => import("../booking/RouteMap"), {
@@ -109,29 +110,16 @@ export default function PlaceSearch({ exclude, current, onPick, placeholder, pin
     onPick(p);
   };
 
-  const locate = () => {
-    if (!navigator.geolocation) return setError("La localisation n'est pas disponible sur cet appareil.");
+  const locate = async () => {
     setLocating(true);
     setError("");
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const res = await fetch(`/api/geo/search?lat=${pos.coords.latitude.toFixed(5)}&lng=${pos.coords.longitude.toFixed(5)}`);
-          const data = await res.json();
-          if (!res.ok) setError(data.error ?? "Position introuvable.");
-          else pick({ ...data.place, label: data.place.label.startsWith("Point sur la carte") ? "Ma position" : data.place.label });
-        } catch {
-          setError("Connexion perdue.");
-        } finally {
-          setLocating(false);
-        }
-      },
-      (err) => {
-        setLocating(false);
-        setError(err.code === err.PERMISSION_DENIED ? "Autorisez la localisation dans votre navigateur pour utiliser votre position." : "Position introuvable pour le moment.");
-      },
-      { enableHighAccuracy: true, timeout: 12000, maximumAge: 60000 },
-    );
+    try {
+      pick(await locateMe());
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLocating(false);
+    }
   };
 
   const searching = q.trim().length >= 3;

@@ -351,6 +351,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                 badge="A"
                 value={pickup}
                 placeholder="Adresse, hôtel, aéroport…"
+                locate
                 onChange={setPickup}
                 onFocus={() => setTarget("pickup")}
               />

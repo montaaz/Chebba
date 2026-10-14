@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { INPUT, LABEL } from "@/components/ui";
+import { locateMe } from "@/lib/locate";
 import type { Point } from "@/lib/types";
 
 type Props = {
@@ -11,17 +12,37 @@ type Props = {
   placeholder: string;
   onChange: (p: Point | null) => void;
   onFocus?: () => void;
+  /* show a button that fills the field with the phone's position */
+  locate?: boolean;
 };
 
 /* Address search with suggestions, limited to the service area by the server. */
-export default function PlaceInput({ label, badge, value, placeholder, onChange, onFocus }: Props) {
+export default function PlaceInput({ label, badge, value, placeholder, onChange, onFocus, locate }: Props) {
   const id = useId();
   const [text, setText] = useState(value?.label ?? "");
   const [items, setItems] = useState<Point[]>([]);
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
   const [busy, setBusy] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [error, setError] = useState("");
   const typed = useRef(false);
+
+  const fillMyPosition = async () => {
+    setLocating(true);
+    setError("");
+    setOpen(false);
+    try {
+      const p = await locateMe();
+      typed.current = false;
+      setText(p.label);
+      onChange(p);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLocating(false);
+    }
+  };
 
   // follow the value when it is set from outside (quick pick, map, swap, clear),
   // but never overwrite what the person is typing
@@ -86,7 +107,7 @@ export default function PlaceInput({ label, badge, value, placeholder, onChange,
         </span>
         <input
           id={id}
-          className={`${INPUT} min-h-13 truncate pr-12 pl-11`}
+          className={`${INPUT} min-h-13 truncate ${locate ? "pr-24" : "pr-12"} pl-11`}
           title={value?.label}
           enterKeyHint="search"
           autoCapitalize="off"
@@ -108,13 +129,14 @@ export default function PlaceInput({ label, badge, value, placeholder, onChange,
           onChange={(e) => {
             typed.current = true;
             setText(e.target.value);
+            setError("");
             if (value) onChange(null);
           }}
         />
         {(text || busy) && (
           <button
             type="button"
-            className="absolute top-1/2 right-1 grid size-11 -translate-y-1/2 text-xl cursor-pointer place-items-center rounded-full text-mist hover:bg-white/10 hover:text-ink"
+            className={`absolute top-1/2 ${locate ? "right-12" : "right-1"} grid size-11 -translate-y-1/2 text-xl cursor-pointer place-items-center rounded-full text-mist hover:bg-white/10 hover:text-ink`}
             aria-label={`Effacer ${label.toLowerCase()}`}
             onClick={() => {
               typed.current = false;
@@ -126,7 +148,32 @@ export default function PlaceInput({ label, badge, value, placeholder, onChange,
             {busy ? <span className="size-3 animate-spin rounded-full border-2 border-aqua border-t-transparent" /> : "×"}
           </button>
         )}
+        {locate && (
+          <button
+            type="button"
+            onClick={fillMyPosition}
+            disabled={locating}
+            className="absolute top-1/2 right-1 grid size-11 -translate-y-1/2 cursor-pointer place-items-center rounded-full text-aqua hover:bg-aqua/15 disabled:cursor-progress"
+            aria-label="Utiliser ma position actuelle"
+            title="Utiliser ma position actuelle"
+          >
+            {locating ? (
+              <span className="size-4 animate-spin rounded-full border-2 border-aqua border-t-transparent" />
+            ) : (
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="3.5" />
+                <path d="M12 2v3m0 14v3M2 12h3m14 0h3" />
+                <circle cx="12" cy="12" r="7.5" />
+              </svg>
+            )}
+          </button>
+        )}
       </div>
+      {error && (
+        <p className="rounded-xl bg-coral/10 px-3 py-2 text-sm text-[#f5b39a]" role="alert">
+          {error}
+        </p>
+      )}
       {open && (
         <ul
           id={`${id}-list`}
