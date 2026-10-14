@@ -88,5 +88,42 @@ if (sharp) {
   console.log(`${pos - existing} Ibiza photo(s) imported.`);
 }
 
+/* One time only: the Mahindra XUV 3XO with its 7 photos (already encoded, plates replaced),
+   unless the admin has already added one. The marker keeps it from coming back if deleted. */
+const XUV = "seed:mahindra-xuv-3xo";
+if (hasTable && !(await client.query("SELECT 1 FROM schema_migrations WHERE name = $1", [XUV])).rowCount) {
+  const exists = (await client.query("SELECT 1 FROM cars WHERE lower(make) = 'mahindra' AND lower(model) = 'xuv 3xo'")).rowCount;
+  if (!exists) {
+    const { readFile } = await import("node:fs/promises");
+    const path = await import("node:path");
+    const { ROOT } = await import("./db-env.mjs");
+    const dir = path.join(ROOT, "db", "seed-photos", "mahindra-xuv-3xo");
+    const photos = JSON.parse(await readFile(path.join(dir, "photos.json"), "utf8"));
+    await client.query("BEGIN");
+    const { rows } = await client.query(
+      `INSERT INTO cars (slug, make, model, trim_level, model_year, seats, luggage, transmission, fuel, image, units,
+          for_rental, for_transfer, price_per_day, is_active, sort_order)
+       VALUES ('mahindra-xuv-3xo-ax7-l', 'Mahindra', 'XUV 3XO', 'AX7 L', 2026, 5, 3, 'automatic', 'petrol', '', 1,
+          true, true, 100, true, 2)
+       ON CONFLICT (slug) DO NOTHING RETURNING id`,
+    );
+    if (rows[0]) {
+      for (const [pos, p] of photos.entries()) {
+        const large = await readFile(path.join(dir, `${p.file}-large.webp`));
+        const small = await readFile(path.join(dir, `${p.file}-small.webp`));
+        await client.query(
+          "INSERT INTO car_photos (car_id, position, width, height, small, large, bytes) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+          [rows[0].id, pos, p.width, p.height, small, large, large.length + small.length],
+        );
+      }
+      console.log(`Mahindra XUV 3XO added with ${photos.length} photos.`);
+    }
+    await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [XUV]);
+    await client.query("COMMIT");
+  } else {
+    await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [XUV]);
+  }
+}
+
 console.log("Seed complete.");
 await client.end();
