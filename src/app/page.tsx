@@ -69,7 +69,8 @@ export default async function Home() {
         : c.slug === "seat-ibiza-fr"
           ? ANGLES.map((a) => ({ kind: "builtin" as const, img: a.img, k: a.k, title: a.title, text: a.text }))
           : [];
-      return { id: c.id, slug: c.slug, name: carName(c), tag: `${c.model} ${c.trim_level}`.trim().toUpperCase(), frames };
+      const price = c.for_rental && c.price_per_day > 0 ? `${money(c.price_per_day, currency)} / j` : c.for_transfer && km > 0 ? `${money(km, currency)} / km` : "";
+      return { id: c.id, slug: c.slug, name: carName(c), tag: `${c.model} ${c.trim_level}`.trim().toUpperCase(), frames, gear: c.transmission, seats: c.seats, price, make: c.make, model: `${c.model} ${c.trim_level}`.trim() };
     })
     .filter((c) => c.frames.length > 0);
   // the database is unreachable: still show the Ibiza

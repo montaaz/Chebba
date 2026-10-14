@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { photoSrcSet, photoUrl } from "@/lib/photos";
+import FleetPicker from "./FleetPicker";
 import Icon from "./Icon";
 import Picture from "./Picture";
 
@@ -12,7 +13,19 @@ export type ShowFrame =
   /* a built-in image (used only while a vehicle has no uploaded photos) */
   | { kind: "builtin"; img: string; k: string; title: string; text: string };
 
-export type ShowCar = { id: number; slug: string; name: string; tag: string; frames: ShowFrame[] };
+export type ShowCar = {
+  id: number;
+  slug: string;
+  name: string;
+  tag: string;
+  frames: ShowFrame[];
+  /* shown on the vehicle cards */
+  make?: string;
+  model?: string;
+  gear?: "automatic" | "manual";
+  seats?: number;
+  price?: string;
+};
 
 const clamp = (v: number, a = 0, b = 1) => Math.min(b, Math.max(a, v));
 const two = (n: number) => String(n).padStart(2, "0");
@@ -109,30 +122,7 @@ export default function Showroom({ cars }: { cars: ShowCar[] }) {
         <div className="show__copy">
           <p className="eyebrow">{cars.length > 1 ? "Notre flotte" : "Tour du propriétaire"}</p>
 
-          {cars.length > 1 && (
-            <div
-              // phones: one swipeable line, faded at the edge so the next car shows there is more; wider screens: every car on view
-              className="mt-4 -mb-1 flex gap-1.5 max-md:-mr-4 max-md:snap-x max-md:overflow-x-auto max-md:pr-10 max-md:pb-1 max-md:[mask-image:linear-gradient(to_right,#000_calc(100%-3rem),transparent)] max-md:[scrollbar-width:none] md:flex-wrap max-md:[&::-webkit-scrollbar]:hidden"
-              role="tablist"
-              aria-label="Véhicules"
-            >
-              {cars.map((c, i) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={i === carIdx}
-                  onClick={(e) => {
-                    e.currentTarget.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
-                    pickCar(i);
-                  }}
-                  className={`min-h-11 max-w-full shrink-0 cursor-pointer truncate rounded-full snap-start border px-4 text-sm font-semibold whitespace-nowrap transition-colors ${i === carIdx ? "border-aqua bg-aqua/15 text-ink" : "border-hair text-mist hover:text-ink"}`}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
-          )}
+          {cars.length > 1 && <FleetPicker cars={cars} index={carIdx} onPick={pickCar} />}
 
           <div className="show__captions">
             {frames.map((fr, i) => (
