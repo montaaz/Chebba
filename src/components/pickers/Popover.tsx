@@ -120,8 +120,8 @@ export default function Popover({ open, onClose, anchor, title, children, width 
         aria-label={title}
         className={
           phone
-            ? "picker-sheet fixed inset-x-0 bottom-0 z-[120] max-h-[88svh] overflow-y-auto overscroll-contain rounded-t-[28px] border-t border-line bg-[#03262a] px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-30px_60px_-20px_#000]"
-            : `picker-pop fixed z-[120] rounded-3xl border border-line bg-[#03262a]/95 p-3 shadow-[0_40px_80px_-30px_#000,0_0_0_1px_rgb(134_207_207/0.06)] backdrop-blur-xl ${pos?.up ? "origin-bottom" : "origin-top"}`
+            ? "picker-sheet fixed inset-x-0 bottom-0 z-[120] max-h-[88svh] overflow-y-auto overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-t-[28px] border-t border-line bg-[#03262a] px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-30px_60px_-20px_#000]"
+            : `picker-pop fixed z-[120] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden rounded-3xl border border-line bg-[#03262a]/95 p-3 shadow-[0_40px_80px_-30px_#000,0_0_0_1px_rgb(134_207_207/0.06)] backdrop-blur-xl ${pos?.up ? "origin-bottom" : "origin-top"}`
         }
         style={phone ? undefined : { top: pos?.top ?? -9999, left: pos?.left ?? -9999, width, maxHeight: pos?.max, overflowY: "auto", overscrollBehavior: "contain" }}
       >

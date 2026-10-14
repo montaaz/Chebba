@@ -150,7 +150,7 @@ export default function Calendar({ value, start, end, min, max, onPick, months =
                     onClick={() => onPick(d)}
                     onPointerEnter={() => setHover(d)}
                     onFocus={() => setFocus(d)}
-                    className={`relative grid size-11 cursor-pointer place-items-center rounded-full text-[0.92rem] tabular-nums transition-[background-color,color,transform] outline-none focus-visible:ring-2 focus-visible:ring-aqua active:scale-95 disabled:cursor-default disabled:text-white/20 disabled:hover:bg-transparent ${
+                    className={`relative grid size-11 cursor-pointer place-items-center rounded-full text-[0.92rem] md:size-10 tabular-nums transition-[background-color,color,transform] outline-none focus-visible:ring-2 focus-visible:ring-aqua active:scale-95 disabled:cursor-default disabled:text-white/20 disabled:hover:bg-transparent ${
                       isEnd
                         ? "bg-linear-to-br from-aqua to-teal font-bold text-[#02211f] shadow-[0_8px_18px_-8px_rgb(134_207_207/0.9)]"
                         : inside

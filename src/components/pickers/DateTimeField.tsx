@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { addDays, joinDT, shortDate, splitDT, today } from "@/lib/dates";
 import Calendar from "./Calendar";
 import Popover from "./Popover";
@@ -18,11 +18,22 @@ type Props = {
 const MINUTES = ["00", "15", "30", "45"];
 const pad = (n: number) => String(n).padStart(2, "0");
 
-/* Date + time in one field: calendar, then an hour grid and a quarter-hour switch. */
+/* Date + time in one field. Wide screens: calendar and time side by side, all visible at once.
+   Phones: a "Date | Heure" switch, picking a day moves on to the time. Nothing scrolls. */
 export default function DateTimeField({ label, value, onChange, min, rangeStart, placeholder = "Choisir la date et l'heure" }: Props) {
   const id = useId();
   const [open, setOpen] = useState(false);
+  const [tab, setTab] = useState<"date" | "time">("date");
+  const [wide, setWide] = useState(false);
   const wrap = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 768px)");
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
   const { date, time } = splitDT(value);
   const m = splitDT(min);
   const hour = time ? Number(time.slice(0, 2)) : null;
@@ -41,6 +52,7 @@ export default function DateTimeField({ label, value, onChange, min, rangeStart,
     let t = time || "10:00";
     if (!allowed(d, t)) t = firstSlot(d);
     onChange(joinDT(d, t));
+    setTab("time");
   };
   const pickHour = (h: number) => {
     const d = date || m.date;
@@ -71,7 +83,10 @@ export default function DateTimeField({ label, value, onChange, min, rangeStart,
         aria-labelledby={`${id}-l ${id}-v`}
         aria-haspopup="dialog"
         aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => {
+          setTab("date");
+          setOpen((o) => !o);
+        }}
         className={`group flex min-h-13 w-full cursor-pointer items-center gap-3 rounded-xl border px-3.5 text-left transition-colors ${
           open ? "border-aqua bg-aqua/10" : "border-hair bg-white/5 hover:border-line"
         }`}
@@ -96,56 +111,83 @@ export default function DateTimeField({ label, value, onChange, min, rangeStart,
         </svg>
       </button>
 
-      <Popover open={open} onClose={() => setOpen(false)} anchor={wrap} title={label} width={372}>
-        {presets.length > 0 && (
-          <div className="mb-3 flex gap-1.5 overflow-x-auto [scrollbar-width:none]">
-            {presets.map((p) => (
-              <button key={p.day} type="button" className={`${chip(date === p.day)} shrink-0 px-4`} onClick={() => pickDate(p.day)}>
-                {p.label}
-              </button>
-            ))}
-          </div>
-        )}
-        <Calendar value={rangeStart ? null : date || null} start={rangeStart ?? null} end={rangeStart ? date || null : null} min={m.date} onPick={pickDate} />
+      <Popover open={open} onClose={() => setOpen(false)} anchor={wrap} title={label} width={wide ? 664 : 372}>
+        {/* phones: one step at a time, each tab showing what is already chosen */}
+        <div className="mb-3 grid grid-cols-2 gap-1 rounded-2xl bg-white/5 p-1 md:hidden" role="tablist" aria-label={label}>
+          {(["date", "time"] as const).map((t) => (
+            <button
+              key={t}
+              type="button"
+              role="tab"
+              aria-selected={tab === t}
+              onClick={() => setTab(t)}
+              className={`flex min-h-12 cursor-pointer flex-col items-center justify-center rounded-xl px-2 leading-tight transition-colors ${tab === t ? "bg-white/10 text-ink" : "text-mist"}`}
+            >
+              <span className="text-[0.62rem] font-semibold tracking-[0.16em] uppercase opacity-70">{t === "date" ? "Date" : "Heure"}</span>
+              <span className="text-sm font-semibold tabular-nums first-letter:uppercase">
+                {t === "date" ? (date ? shortDate(date) : "—") : time ? time.replace(":", " h ") : "—"}
+              </span>
+            </button>
+          ))}
+        </div>
 
-        <div className="mt-4 border-t border-hair pt-4">
-          <div className="mb-2.5 flex items-center justify-between">
-            <p className="text-[0.68rem] font-semibold tracking-[0.18em] text-mist uppercase">Heure</p>
-            {time && <p className="font-display text-lg font-extrabold text-sand tabular-nums">{time.replace(":", " h ")}</p>}
+        <div className="md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:gap-5">
+          <div className={tab === "date" ? "" : "max-md:hidden"}>
+            {presets.length > 0 && (
+              <div className="mb-2 flex gap-1.5">
+                {presets.map((p) => (
+                  <button key={p.day} type="button" className={`${chip(date === p.day)} min-w-0 flex-1 px-2 text-[0.8rem] md:min-h-9`} onClick={() => pickDate(p.day)}>
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Calendar value={rangeStart ? null : date || null} start={rangeStart ?? null} end={rangeStart ? date || null : null} min={m.date} onPick={pickDate} />
           </div>
-          <div className="grid grid-cols-6 gap-1.5" role="group" aria-label="Heure">
-            {Array.from({ length: 24 }, (_, h) => (
-              <button
-                key={h}
-                type="button"
-                className={chip(hour === h)}
-                aria-pressed={hour === h}
-                disabled={!MINUTES.some((q) => allowed(date || m.date, `${pad(h)}:${q}`))}
-                onClick={() => pickHour(h)}
-              >
-                {pad(h)}
-              </button>
-            ))}
-          </div>
-          <div className="mt-2 grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1" role="group" aria-label="Minutes">
-            {MINUTES.map((q) => (
-              <button
-                key={q}
-                type="button"
-                className={`${chip(minute === q)} ${minute === q ? "" : "bg-transparent"}`}
-                aria-pressed={minute === q}
-                disabled={!allowed(date || m.date, `${pad(hour ?? 23)}:${q}`)}
-                onClick={() => pickMinute(q)}
-              >
-                :{q}
-              </button>
-            ))}
+
+          <div className={`md:flex md:flex-col md:border-l md:border-hair md:pl-5 ${tab === "time" ? "" : "max-md:hidden"}`}>
+            <div className="mb-2.5 flex min-h-11 items-center justify-between">
+              <p className="text-[0.68rem] font-semibold tracking-[0.18em] text-mist uppercase">Heure</p>
+              <p className="font-display text-xl font-extrabold text-sand tabular-nums">{time ? time.replace(":", " h ") : "— h —"}</p>
+            </div>
+            <div className="grid grid-cols-6 gap-1.5" role="group" aria-label="Heure">
+              {Array.from({ length: 24 }, (_, h) => (
+                <button
+                  key={h}
+                  type="button"
+                  className={`${chip(hour === h)} md:min-h-10`}
+                  aria-pressed={hour === h}
+                  disabled={!MINUTES.some((q) => allowed(date || m.date, `${pad(h)}:${q}`))}
+                  onClick={() => pickHour(h)}
+                >
+                  {pad(h)}
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 mb-1.5 text-[0.68rem] font-semibold tracking-[0.18em] text-mist uppercase">Minutes</p>
+            <div className="grid grid-cols-4 gap-1 rounded-2xl bg-white/5 p-1" role="group" aria-label="Minutes">
+              {MINUTES.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  className={`${chip(minute === q)} md:min-h-10 ${minute === q ? "" : "bg-transparent"}`}
+                  aria-pressed={minute === q}
+                  disabled={!allowed(date || m.date, `${pad(hour ?? 23)}:${q}`)}
+                  onClick={() => pickMinute(q)}
+                >
+                  :{q}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
-        <button type="button" disabled={!value} onClick={() => setOpen(false)} className="btn btn--solid mt-4 min-h-12 w-full">
-          {value ? `Valider · ${shortDate(date)}, ${time.replace(":", " h ")}` : "Choisissez une date"}
-        </button>
+        {/* always in reach: stuck to the bottom of the sheet on phones */}
+        <div className="sticky bottom-0 -mx-4 mt-4 bg-[#03262a] px-4 pt-1 md:static md:mx-0 md:bg-transparent md:p-0">
+          <button type="button" disabled={!value} onClick={() => setOpen(false)} className="btn btn--solid min-h-12 w-full">
+            {value ? `Valider · ${shortDate(date)}, ${time.replace(":", " h ")}` : "Choisissez une date"}
+          </button>
+        </div>
       </Popover>
     </div>
   );
