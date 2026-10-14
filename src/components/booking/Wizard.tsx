@@ -63,6 +63,8 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
   const [endAt, setEndAt] = useState(initial.endAt);
   const [passengers, setPassengers] = useState(1);
   const [carId, setCarId] = useState<number | null>(initial.carId ?? null);
+  // the car the visitor asked for: kept when a service does not offer it, chosen again when one does
+  const wanted = useRef<number | null>(initial.carId ?? null);
   const photosOf = useMemo(() => groupPhotos(photos), [photos]);
   const [quote, setQuote] = useState<Quote | null>(null);
   const [quoting, setQuoting] = useState(false);
@@ -141,12 +143,20 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
 
   // cars offered for the current service: priced for it (a missing tariff is never a free booking)
   const eligibleCars = useMemo(
-    () => cars.filter((c) => (isTransfer ? c.for_transfer && (c.price_per_km ?? globalKm) > 0 : c.for_rental && c.price_per_day > 0)),
-    [cars, isTransfer, globalKm],
+    () =>
+      cars
+        .filter((c) => (isTransfer ? c.for_transfer && (c.price_per_km ?? globalKm) > 0 : c.for_rental && c.price_per_day > 0))
+        // the car picked in the showroom comes first, the others follow to compare
+        .sort((a, b) => Number(b.id === initial.carId) - Number(a.id === initial.carId)),
+    [cars, isTransfer, globalKm, initial.carId],
   );
   // a car chosen for the other service may not be offered for this one
   useEffect(() => {
-    if (carId && !eligibleCars.some((c) => c.id === carId)) setCarId(null);
+    const has = (id: number | null) => id != null && eligibleCars.some((c) => c.id === id);
+    // the visitor's own choice wins whenever this service offers it (an automatic pick never does)
+    if (has(wanted.current)) {
+      if (carId !== wanted.current) setCarId(wanted.current);
+    } else if (carId && !has(carId)) setCarId(null);
     else if (!carId && eligibleCars.length === 1) setCarId(eligibleCars[0].id);
   }, [eligibleCars, carId]);
   const carOffer = offerOf(carId);
@@ -446,6 +456,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                         aria-pressed={on}
                         onClick={() => {
                           setCarId(c.id);
+                          wanted.current = c.id;
                           setError("");
                         }}
                         className="grid w-full cursor-pointer grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-3 p-3 text-left sm:grid-cols-[auto_minmax(0,1fr)_auto] sm:gap-x-4"

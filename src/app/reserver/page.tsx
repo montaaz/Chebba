@@ -19,7 +19,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const q = await searchParams;
   const [user, cars, places, settings, photos] = await Promise.all([getUser(), getActiveCars(), getActivePlaces(), getSettings(), getCarPhotos()]);
   // "Réserver ce véhicule" from the showroom arrives with ?car=<slug>
-  const picked = typeof q.car === "string" ? cars.find((c) => c.slug === q.car)?.id ?? null : null;
+  const pickedCar = typeof q.car === "string" ? cars.find((c) => c.slug === q.car) : undefined;
+  const picked = pickedCar?.id ?? null;
+  // open on a service the chosen car is offered for (priced), the one asked for when both are
+  const offers = {
+    transfer: !!pickedCar && pickedCar.for_transfer && (pickedCar.price_per_km ?? settings.price_per_km) > 0,
+    rental: !!pickedCar && pickedCar.for_rental && pickedCar.price_per_day > 0,
+  };
+  const asked = q.mode === "location" ? "rental" : "transfer";
+  const kind = pickedCar && !offers[asked] && offers[asked === "rental" ? "transfer" : "rental"] ? (asked === "rental" ? "transfer" : "rental") : asked;
   const day = (v: unknown) => (typeof v === "string" && DATE.test(v) ? `${v}T10:00` : "");
   // places chosen in the home-page bar arrive as frequent-place ids
   // "lat,lng,label"; anything outside Tunisia or malformed is simply ignored
@@ -43,7 +51,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           currency={settings.currency}
           minLeadHours={settings.min_lead_hours}
           whatsapp={settings.contact_whatsapp}
-          initial={{ kind: q.mode === "location" ? "rental" : "transfer", startAt: day(q.from), endAt: day(q.to), pickup: place(q.a), dropoff: place(q.b), carId: picked }}
+          initial={{ kind, startAt: day(q.from), endAt: day(q.to), pickup: place(q.a), dropoff: place(q.b), carId: picked }}
           photos={photos}
           globalKm={settings.price_per_km}
         />
