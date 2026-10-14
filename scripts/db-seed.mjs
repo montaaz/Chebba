@@ -88,24 +88,36 @@ if (sharp) {
   console.log(`${pos - existing} Ibiza photo(s) imported.`);
 }
 
-/* One time only: the Mahindra XUV 3XO with its 7 photos (already encoded, plates replaced),
-   unless the admin has already added one. The marker keeps it from coming back if deleted. */
-const XUV = "seed:mahindra-xuv-3xo";
-if (hasTable && !(await client.query("SELECT 1 FROM schema_migrations WHERE name = $1", [XUV])).rowCount) {
-  const exists = (await client.query("SELECT 1 FROM cars WHERE lower(make) = 'mahindra' AND lower(model) = 'xuv 3xo'")).rowCount;
+/* One time only: vehicles added with their photos (already encoded, number plates replaced),
+   unless the admin already has that make and model. The marker keeps a deleted one from coming back. */
+const FLEET = [
+  {
+    mark: "seed:mahindra-xuv-3xo", photos: "mahindra-xuv-3xo", slug: "mahindra-xuv-3xo-ax7-l",
+    make: "Mahindra", model: "XUV 3XO", trim: "AX7 L", year: 2026, seats: 5, luggage: 3,
+    transmission: "automatic", fuel: "petrol", perDay: 100, rental: true, transfer: true, sort: 2,
+  },
+  {
+    mark: "seed:kia-picanto", photos: "kia-picanto", slug: "kia-picanto-2026",
+    make: "Kia", model: "Picanto", trim: "", year: 2026, seats: 5, luggage: 2,
+    transmission: "manual", fuel: "petrol", perDay: 100, rental: true, transfer: false, sort: 3,
+  },
+];
+for (const car of hasTable ? FLEET : []) {
+  if ((await client.query("SELECT 1 FROM schema_migrations WHERE name = $1", [car.mark])).rowCount) continue;
+  const exists = (await client.query("SELECT 1 FROM cars WHERE lower(make) = lower($1) AND lower(model) = lower($2)", [car.make, car.model])).rowCount;
+  await client.query("BEGIN");
   if (!exists) {
     const { readFile } = await import("node:fs/promises");
     const path = await import("node:path");
     const { ROOT } = await import("./db-env.mjs");
-    const dir = path.join(ROOT, "db", "seed-photos", "mahindra-xuv-3xo");
+    const dir = path.join(ROOT, "db", "seed-photos", car.photos);
     const photos = JSON.parse(await readFile(path.join(dir, "photos.json"), "utf8"));
-    await client.query("BEGIN");
     const { rows } = await client.query(
       `INSERT INTO cars (slug, make, model, trim_level, model_year, seats, luggage, transmission, fuel, image, units,
           for_rental, for_transfer, price_per_day, is_active, sort_order)
-       VALUES ('mahindra-xuv-3xo-ax7-l', 'Mahindra', 'XUV 3XO', 'AX7 L', 2026, 5, 3, 'automatic', 'petrol', '', 1,
-          true, true, 100, true, 2)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, '', 1, $10, $11, $12, true, $13)
        ON CONFLICT (slug) DO NOTHING RETURNING id`,
+      [car.slug, car.make, car.model, car.trim, car.year, car.seats, car.luggage, car.transmission, car.fuel, car.rental, car.transfer, car.perDay, car.sort],
     );
     if (rows[0]) {
       for (const [pos, p] of photos.entries()) {
@@ -116,13 +128,11 @@ if (hasTable && !(await client.query("SELECT 1 FROM schema_migrations WHERE name
           [rows[0].id, pos, p.width, p.height, small, large, large.length + small.length],
         );
       }
-      console.log(`Mahindra XUV 3XO added with ${photos.length} photos.`);
+      console.log(`${car.make} ${car.model} added with ${photos.length} photos.`);
     }
-    await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [XUV]);
-    await client.query("COMMIT");
-  } else {
-    await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [XUV]);
   }
+  await client.query("INSERT INTO schema_migrations (name) VALUES ($1) ON CONFLICT (name) DO NOTHING", [car.mark]);
+  await client.query("COMMIT");
 }
 
 console.log("Seed complete.");
