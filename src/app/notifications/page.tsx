@@ -27,8 +27,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
   const unread = rows.filter((n) => !n.read_at).length;
   const href = (n: { reservation_id: number | null }) =>
     box === "admin" && n.reservation_id ? `/admin/reservations/${n.reservation_id}` : "/compte";
-  const tab = (on: boolean) =>
-    `inline-flex min-h-11 flex-1 items-center justify-center rounded-full px-4 text-sm font-semibold ${on ? "bg-white/10 text-ink" : "text-mist"}`;
 
   return (
     <AppShell user={user} area={user.role === "admin" ? "admin" : "client"}>
@@ -39,16 +37,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
             {unread ? `${unread} nouvelle${unread > 1 ? "s" : ""}` : "Tout est lu."}
           </p>
 
-          {user.role === "admin" && (
-            <nav className="mt-5 flex gap-1.5 rounded-full border border-hair p-1" aria-label="Boîte">
-              <Link prefetch={false} className={tab(box === "admin")} href="/notifications" aria-current={box === "admin" ? "page" : undefined}>
-                Agence
-              </Link>
-              <Link prefetch={false} className={tab(box === "client")} href="/notifications?box=client" aria-current={box === "client" ? "page" : undefined}>
-                Personnel
-              </Link>
-            </nav>
-          )}
 
           {rows.length === 0 ? (
             <p className="mt-6 rounded-2xl border border-dashed border-line p-8 text-center text-sm text-mist">
@@ -84,16 +72,15 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           )}
 
           {next && (
-            <Link prefetch={false} className="btn btn--ghost mt-5 w-full" href={`/notifications?${box === "client" && user.role === "admin" ? "box=client&" : ""}before=${next}`}>
+            <Link prefetch={false} className="btn btn--ghost mt-5 w-full" href={`/notifications?before=${next}`}>
               Notifications plus anciennes
             </Link>
           )}
 
           {user.role === "admin" && box === "admin" && !mailEnabled() && (
             <p className="mt-8 rounded-2xl border border-hair p-4 text-xs text-fog">
-              Les e-mails automatiques sont désactivés : renseignez <code className="text-mist">SMTP_URL</code> dans{" "}
-              <code className="text-mist">.env.local</code> pour les activer. Les notifications du site et WhatsApp
-              fonctionnent sans cela.
+              Les e-mails automatiques ne sont pas encore activés. Les notifications du site et WhatsApp fonctionnent sans
+              eux ; pour les activer, l&apos;adresse du serveur d&apos;envoi (SMTP) doit être ajoutée à la configuration du serveur.
             </p>
           )}
         </div>

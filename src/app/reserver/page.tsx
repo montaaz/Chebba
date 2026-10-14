@@ -48,6 +48,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Rec
           cars={cars}
           places={places}
           user={user ? { full_name: user.full_name, phone: user.phone } : null}
+          staff={user?.role === "admin"}
           currency={settings.currency}
           minLeadHours={settings.min_lead_hours}
           whatsapp={settings.contact_whatsapp}

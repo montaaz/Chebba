@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import AppShell from "@/components/app/AppShell";
 import PageHeader from "@/components/app/PageHeader";
 import RouteSketch from "@/components/app/RouteSketch";
@@ -21,6 +22,8 @@ const ACTIVE = ["pending", "confirmed", "ongoing"];
 
 export default async function Page({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await requireUser("/compte");
+  // the agency's own space is the admin; its bookings are made for clients
+  if (user.role === "admin") redirect("/admin");
   const [list, settings, cars, { tab }] = await Promise.all([reservationsOf(user.id, 100), getSettings(), getActiveCars(), searchParams]);
   const now = Date.now();
   const upcoming = list

@@ -22,12 +22,14 @@ const RouteMap = dynamic(() => import("./RouteMap"), {
 
 type Offer = { carId: number; price: Price; available: boolean };
 type Quote = { route: Route | null; currency: string; offers: Offer[] };
-type Done = { reference: string; total: number; currency: string };
+type Done = { id: number; reference: string; total: number; currency: string; forClient?: string };
 
 type Props = {
   cars: Car[];
   places: Place[];
   user: Pick<User, "full_name" | "phone"> | null;
+  /* an admin booking for a client: the contact step asks for the client, not the admin */
+  staff?: boolean;
   currency: string;
   minLeadHours: number;
   whatsapp: string;
@@ -44,7 +46,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const localInput = (d: Date) =>
   `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 
-export default function Wizard({ cars, places, user, currency, minLeadHours, whatsapp, initial, photos, globalKm }: Props) {
+export default function Wizard({ cars, places, user, staff = false, currency, minLeadHours, whatsapp, initial, photos, globalKm }: Props) {
   const [kind, setKind] = useState<Kind>(initial.kind);
   const [step, setStep] = useState(0);
   const [pickup, setPickup] = useState<Point | null>(initial.pickup ?? null);
@@ -75,8 +77,8 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
   const [done, setDone] = useState<Done | null>(null);
 
   const [mode, setMode] = useState<"signup" | "login">("signup");
-  const [name, setName] = useState(user?.full_name ?? "");
-  const [phone, setPhone] = useState(user?.phone ?? "");
+  const [name, setName] = useState(staff ? "" : (user?.full_name ?? ""));
+  const [phone, setPhone] = useState(staff ? "" : (user?.phone ?? ""));
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [note, setNote] = useState("");
@@ -241,7 +243,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
     setPassword(f.password);
     const result = await bookAction(
       { ...trip, carId: chosen.carId, passengers, customerName: f.name, customerPhone: f.phone, note },
-      user ? undefined : { mode, name: f.name, email: f.email, phone: f.phone, password: f.password },
+      staff ? { email: f.email } : user ? undefined : { mode, name: f.name, email: f.email, phone: f.phone, password: f.password },
     );
     setSending(false);
     if (!result.ok) return setError(result.error);
@@ -253,7 +255,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
     return (
       <div ref={top} className={`${PANEL} mx-auto max-w-2xl text-center`}>
         <span className="mx-auto grid size-16 place-items-center rounded-full bg-teal text-3xl font-bold text-[#02211f]">✓</span>
-        <h1 className="mt-6 text-[clamp(1.5rem,4vw,2.3rem)]">Demande envoyée.</h1>
+        <h1 className="mt-6 text-[clamp(1.5rem,4vw,2.3rem)]">{done.forClient ? `Réservation créée pour ${done.forClient}.` : "Demande envoyée."}</h1>
         <p className="mt-3 text-mist">
           Nous vous contactons rapidement pour confirmer. Conservez votre référence :
         </p>
@@ -262,10 +264,10 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
           Montant : <b className="text-ink">{money(done.total, done.currency)}</b>
         </p>
         <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
-          <Link prefetch={false} className="btn btn--solid" href="/compte">
-            Suivre ma réservation <Icon name="arrow" size={18} />
+          <Link prefetch={false} className="btn btn--solid" href={done.forClient ? `/admin/reservations/${done.id}` : "/compte"}>
+            {done.forClient ? "Ouvrir la réservation" : "Suivre ma réservation"} <Icon name="arrow" size={18} />
           </Link>
-          {whatsapp && (
+          {whatsapp && !done.forClient && (
             <a
               className="btn btn--ghost"
               href={waLink(whatsapp, messageToAgency({ reference: done.reference, customer_name: name || user?.full_name || "" }))}
@@ -276,7 +278,9 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
             </a>
           )}
         </div>
-        <p className="mt-6 text-xs text-fog">Vous serez averti ici, dans votre compte, dès que la réservation est confirmée.</p>
+        <p className="mt-6 text-xs text-fog">
+          {done.forClient ? "Elle est dans le compte du client et dans la liste des réservations." : "Vous serez averti ici, dans votre compte, dès que la réservation est confirmée."}
+        </p>
       </div>
     );
   }
@@ -534,7 +538,7 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
           {step === CONTACT && (
             <>
               <h1 className="text-[clamp(1.3rem,3vw,1.8rem)]">
-                {user ? "Confirmez vos coordonnées" : "Dernière étape : vos coordonnées"}
+                {staff ? "Pour quel client ?" : user ? "Confirmez vos coordonnées" : "Dernière étape : vos coordonnées"}
               </h1>
               {!user && (
                 <div className="flex gap-1.5 rounded-full border border-hair p-1" role="tablist">
@@ -556,14 +560,21 @@ export default function Wizard({ cars, places, user, currency, minLeadHours, wha
                 {(user || mode === "signup") && (
                   <>
                     <label className={FIELD}>
-                      <span className={LABEL}>Nom complet</span>
-                      <input className={INPUT} name="name" value={name} maxLength={80} autoComplete="name" required onChange={(e) => setName(e.target.value)} />
+                      <span className={LABEL}>{staff ? "Nom du client" : "Nom complet"}</span>
+                      <input className={INPUT} name="name" value={name} maxLength={80} autoComplete={staff ? "off" : "name"} required onChange={(e) => setName(e.target.value)} />
                     </label>
                     <label className={FIELD}>
-                      <span className={LABEL}>Téléphone</span>
-                      <input className={INPUT} name="phone" value={phone} maxLength={24} type="tel" inputMode="tel" autoComplete="tel" required onChange={(e) => setPhone(e.target.value)} />
+                      <span className={LABEL}>{staff ? "Téléphone du client" : "Téléphone"}</span>
+                      <input className={INPUT} name="phone" value={phone} maxLength={24} type="tel" inputMode="tel" autoComplete={staff ? "off" : "tel"} required onChange={(e) => setPhone(e.target.value)} />
                     </label>
                   </>
+                )}
+                {staff && (
+                  <label className={`${FIELD} sm:col-span-2`}>
+                    <span className={LABEL}>E-mail du client (facultatif)</span>
+                    <input className={INPUT} name="email" value={email} maxLength={160} type="email" inputMode="email" autoCapitalize="off" autoComplete="off" onChange={(e) => setEmail(e.target.value)} />
+                    <span className="text-xs text-fog">Un client déjà inscrit est retrouvé par son téléphone ou son e-mail ; sinon son compte est créé.</span>
+                  </label>
                 )}
                 {!user && (
                   <>

@@ -40,8 +40,9 @@ export const notifyClient = (db: Db, userId: number, n: { reservationId: number;
 const scope = (user: User, box: "client" | "admin") =>
   box === "admin" ? { where: "audience = 'admin'", params: [] as unknown[] } : { where: "audience = 'client' AND user_id = $1", params: [user.id] };
 
-export const boxOf = (user: User, asked?: string): "client" | "admin" =>
-  user.role === "admin" && asked !== "client" ? "admin" : "client";
+// an admin reads the agency's box, a client their own; nobody gets both
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+export const boxOf = (user: User, _asked?: string): "client" | "admin" => (user.role === "admin" ? "admin" : "client");
 
 export async function unreadCount(user: User) {
   const s = scope(user, boxOf(user));

@@ -6,11 +6,13 @@ import { BookingError, createReservation, reservationById } from "@/lib/server/b
 import { one, query, transaction } from "@/lib/server/db";
 import { mailCancelledByClient, notifyAdmins } from "@/lib/server/notify";
 import { dateTime } from "@/lib/format";
-import { clean, isName, isPassword, isPhone, toInt } from "@/lib/validate";
+import { clean, isEmail, isName, isPassword, isPhone, toInt } from "@/lib/validate";
+import { randomBytes } from "node:crypto";
+import type { User } from "@/lib/types";
 import { signIn, signUp } from "./auth";
 
 export type BookingResult =
-  | { ok: true; id: number; reference: string; total: number; currency: string }
+  | { ok: true; id: number; reference: string; total: number; currency: string; forClient?: string }
   | { ok: false; error: string };
 
 type Account = { mode?: unknown; name?: unknown; email?: unknown; phone?: unknown; password?: unknown };
@@ -44,6 +46,19 @@ export async function bookAction(raw: Record<string, unknown>, account?: Account
     if (name && !isName(name)) return { ok: false, error: "Indiquez le nom du passager." };
     if (phone && !isPhone(phone)) return { ok: false, error: "Indiquez un numéro de téléphone valide." };
 
+    // the agency books for a client: the reservation belongs to the client, never to the admin
+    if (user.role === "admin") {
+      if (!isName(name)) return { ok: false, error: "Indiquez le nom du client." };
+      if (!isPhone(phone)) return { ok: false, error: "Indiquez le téléphone du client." };
+      const email = clean(account?.email, 160).toLowerCase();
+      if (email && !isEmail(email)) return { ok: false, error: "L'e-mail du client est invalide." };
+      const client = await clientFor(name, phone, email);
+      if ("error" in client) return { ok: false, error: client.error };
+      const done = await createReservation(client, raw);
+      revalidatePath("/admin", "layout");
+      return { ok: true, ...done, forClient: client.full_name };
+    }
+
     const done = await createReservation(user, raw);
     revalidatePath("/compte");
     return { ok: true, ...done };
@@ -52,6 +67,27 @@ export async function bookAction(raw: Record<string, unknown>, account?: Account
     console.error("booking failed", err);
     return { ok: false, error: "Une erreur est survenue. Réessayez ou appelez-nous." };
   }
+}
+
+/* The client an admin is booking for: found by e-mail, else by phone number, else created.
+   A new account gets a random password; the admin can send real access from the client sheet. */
+async function clientFor(name: string, phone: string, email: string): Promise<User | { error: string }> {
+  const digits = phone.replace(/\D/g, "").slice(-8);
+  const cols = "id, role, full_name, email, phone";
+  const found =
+    (email ? await one<User>(`SELECT ${cols} FROM users WHERE lower(email) = $1`, [email]) : null) ??
+    (await one<User>(
+      `SELECT ${cols} FROM users WHERE role = 'client' AND right(regexp_replace(phone, '\\D', '', 'g'), 8) = $1 ORDER BY id DESC LIMIT 1`,
+      [digits],
+    ));
+  if (found) return found.role === "client" ? found : { error: "Cet e-mail appartient à un compte de l'équipe." };
+  // no e-mail given: a unique placeholder keeps the account valid (it receives nothing)
+  const address = email || `tel-${phone.replace(/\D/g, "")}-${randomBytes(3).toString("hex")}@sans-email.chebbautocar.com`;
+  const created = await one<User>(
+    `INSERT INTO users (full_name, email, phone, password_hash) VALUES ($1, $2, $3, $4) RETURNING ${cols}`,
+    [name, address, phone, await hashPassword(randomBytes(18).toString("base64url"))],
+  );
+  return created!;
 }
 
 export async function cancelAction(form: FormData) {

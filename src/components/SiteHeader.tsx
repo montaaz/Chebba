@@ -42,9 +42,11 @@ export default async function SiteHeader() {
                 </span>
               )}
             </Link>
-            <Link prefetch={false} className={`${LINK} max-md:hidden`} href="/compte">
-              Mon compte
-            </Link>
+            {user.role !== "admin" && (
+              <Link prefetch={false} className={`${LINK} max-md:hidden`} href="/compte">
+                Mon compte
+              </Link>
+            )}
             <form action={logoutAction}>
               <button className={`${LINK} cursor-pointer gap-2`} type="submit">
                 <Icon name="exit" size={18} />

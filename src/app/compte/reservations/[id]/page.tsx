@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import AppShell from "@/components/app/AppShell";
 import CancelButton from "@/components/app/CancelButton";
 import TripMap from "@/components/app/TripMap";
@@ -21,6 +21,8 @@ export const metadata: Metadata = { title: "Ma réservation", robots: { index: f
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser("/compte");
   const id = toInt((await params).id, 1, 2_147_483_647);
+  // the agency sees every reservation in the admin, with its full sheet
+  if (user.role === "admin") redirect(id ? `/admin/reservations/${id}` : "/admin");
   const r = id ? await reservationById(id) : undefined;
   // someone else's reservation looks exactly like one that does not exist
   if (!r || r.user_id !== user.id) notFound();
