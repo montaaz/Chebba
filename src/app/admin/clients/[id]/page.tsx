@@ -4,10 +4,12 @@ import { notFound } from "next/navigation";
 import { toggleUserAction } from "@/app/actions/admin";
 import Avatar from "@/components/app/Avatar";
 import TripRow from "@/components/app/TripRow";
+import ClientEdit from "@/components/admin/ClientEdit";
+import DeleteClient from "@/components/admin/DeleteClient";
 import ResetPassword from "@/components/admin/ResetPassword";
 import Icon from "@/components/Icon";
 import { PANEL } from "@/components/ui";
-import { dateOnly, dateTime, money } from "@/lib/format";
+import { dateOnly, money } from "@/lib/format";
 import { one, query } from "@/lib/server/db";
 import { getSettings } from "@/lib/server/settings";
 import { SITE } from "@/lib/site";
@@ -101,21 +103,8 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         <div className="flex flex-col gap-5">
           <section className={PANEL}>
             <h2 className="mb-3 text-base">Coordonnées</h2>
-            <dl className="flex flex-col gap-2 text-sm">
-              <div className="flex justify-between gap-3">
-                <dt className="text-mist">E-mail (identifiant)</dt>
-                <dd className="text-right font-semibold break-all">{c.email}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-mist">Téléphone</dt>
-                <dd className="font-semibold">{c.phone}</dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-mist">Dernière connexion</dt>
-                <dd>{c.last_login_at ? dateTime(c.last_login_at) : "Jamais"}</dd>
-              </div>
-            </dl>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            <ClientEdit id={c.id} name={c.full_name} email={c.email} phone={c.phone} lastLogin={c.last_login_at} />
+            <div className="mt-2 grid grid-cols-2 gap-2">
               <a className="btn btn--ghost min-h-11" href={`tel:${tel}`}>
                 <Icon name="phone" size={18} /> Appeler
               </a>
@@ -139,6 +128,9 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
               </button>
             </form>
             <p className="mt-2 text-xs text-fog">Un client bloqué ne peut plus se connecter ni réserver.</p>
+            <div className="mt-4 border-t border-hair pt-4">
+              <DeleteClient id={c.id} name={c.full_name} bookings={rows.length} />
+            </div>
           </section>
         </div>
       </div>

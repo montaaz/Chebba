@@ -283,3 +283,44 @@ export async function createClientAction(input: { name: unknown; email: unknown;
     throw err;
   }
 }
+
+export type ClientResult = { ok: true } | { ok: false; error: string };
+
+/* The admin corrects a client's details. The e-mail is the client's login: it must stay unique. */
+export async function updateClientAction(id: number, input: { name: unknown; email: unknown; phone: unknown }): Promise<ClientResult> {
+  await requireAdmin();
+  const uid = toInt(id, 1, ID_MAX);
+  const name = clean(input.name, 80);
+  const email = clean(input.email, 160).toLowerCase();
+  const phone = clean(input.phone, 24);
+  if (!uid) return { ok: false, error: "Client introuvable." };
+  if (!isName(name)) return { ok: false, error: "Indiquez le nom complet du client." };
+  if (!isEmail(email)) return { ok: false, error: "Indiquez une adresse e-mail valide." };
+  if (!isPhone(phone)) return { ok: false, error: "Indiquez un numéro de téléphone valide." };
+  try {
+    const updated = await query("UPDATE users SET full_name = $2, email = $3, phone = $4 WHERE id = $1 AND role = 'client' RETURNING id", [uid, name, email, phone]);
+    if (!updated.length) return { ok: false, error: "Client introuvable." };
+  } catch (err) {
+    if (isUniqueViolation(err)) return { ok: false, error: "Cet e-mail est déjà utilisé par un autre compte." };
+    throw err;
+  }
+  revalidatePath("/admin/clients", "layout");
+  return { ok: true };
+}
+
+/* Only a client without any reservation can be deleted: bookings are the agency's history
+   and accounts. One with bookings can be blocked instead. */
+export async function deleteClientAction(id: number): Promise<ClientResult> {
+  await requireAdmin();
+  const uid = toInt(id, 1, ID_MAX);
+  if (!uid) return { ok: false, error: "Client introuvable." };
+  const result = await transaction(async (db) => {
+    const { rows } = await db.query<{ n: number }>("SELECT count(*)::int AS n FROM reservations WHERE user_id = $1", [uid]);
+    if (rows[0].n > 0) return `Ce client a ${rows[0].n} réservation${rows[0].n > 1 ? "s" : ""} : il ne peut pas être supprimé. Bloquez-le à la place.`;
+    const { rowCount } = await db.query("DELETE FROM users WHERE id = $1 AND role = 'client'", [uid]);
+    return rowCount ? null : "Client introuvable.";
+  });
+  if (result) return { ok: false, error: result };
+  revalidatePath("/admin/clients", "layout");
+  return { ok: true };
+}

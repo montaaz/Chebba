@@ -77,3 +77,6 @@ export const NEXT_STATUS: Record<Status, Status[]> = {
 
 export const carName = (c: { make: string; model: string; trim_level: string }) =>
   [c.make, c.model, c.trim_level].filter(Boolean).join(" ");
+
+/* accounts opened by the agency without an e-mail get a placeholder address that receives nothing */
+export const noEmail = (email: string) => email.endsWith("@sans-email.chebbautocar.com");
